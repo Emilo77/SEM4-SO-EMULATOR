@@ -43,7 +43,7 @@ so_state_t so_emul(uint16_t const *code, uint8_t *data, size_t steps, size_t cor
 Wynikiem tej funkcji jest instancja struktury reprezentującej aktualny stan rdzenia. Każdy rdzeń ma własny zestaw rejestrów i znaczników. Dla każdego rdzenia funkcję `so_emul` uruchamia się w osobnym wątku.
 Instrukcje procesora jednordzeniowego
 
-## W poniższych opisach słowo „kod” oznacza kod maszynowy, czyli binarną reprezentację instrukcji lub parametru instrukcji. Instrukcja może mieć parametry oznaczane jako arg1, arg2 lub imm8. Parametr imm8 to 8-bitowa stała. Parametry arg1, arg2 mogą mieć następującą postać:
+**W poniższych opisach słowo „kod” oznacza kod maszynowy, czyli binarną reprezentację instrukcji lub parametru instrukcji. Instrukcja może mieć parametry oznaczane jako arg1, arg2 lub imm8. Parametr imm8 to 8-bitowa stała. Parametry arg1, arg2 mogą mieć następującą postać:**
 
 - `A` – wartość rejestru `A`, kod `0`;
 - `D` – wartość rejestru `D`, kod `1`;
