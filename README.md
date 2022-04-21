@@ -64,6 +64,8 @@ kod `0x0000 + 0x100 * arg1 + 0x0800 * arg2`
 
 Przepisuje wartość `arg2` do `arg1`. Nie modyfikuje znaczników.
 
+---
+
 ```asm
 OR arg1, arg2
 ```
@@ -71,6 +73,8 @@ OR arg1, arg2
 kod `0x0002 + 0x100 * arg1 + 0x0800 * arg2`
 
 Wykonuje bitową alternatywę `arg1` i `arg2`. Umieszcza wynik w arg1. Ustawia znacznik Z zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
+
+---
 
 ```asm
 ADD arg1, arg2
@@ -80,6 +84,8 @@ kod `0x0004 + 0x100 * arg1 + 0x0800 * arg2`
 
 Dodaje wartość `arg2` do `arg1`. Ustawia znacznik Z zgodnie z wynikiem operacji. Nie modyfikuje znacznika C.
 
+---
+
 ```asm
 SUB arg1, arg2
 ```
@@ -87,6 +93,8 @@ SUB arg1, arg2
 kod `0x0005 + 0x100 * arg1 + 0x0800 * arg2`
 
 Odejmuje wartość `arg2` od `arg1`. Ustawia znacznik Z zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
+
+---
 
 ```asm
 ADC arg1, arg2
@@ -96,6 +104,8 @@ kod `0x0006 + 0x100 * arg1 + 0x0800 * arg2`
 
 Dodaje wartości `arg2` oraz `C` do `arg1`. Ustawia znaczniki `C` i Z zgodnie z wynikiem operacji.
 
+---
+
 ```asm
 SBB arg1, arg2
 ```
@@ -104,12 +114,16 @@ kod `0x0007 + 0x100 * arg1 + 0x0800 * arg2`
 
 Odejmuje wartości `arg2` oraz `C` od `arg1`. Ustawia znaczniki `C` i Z zgodnie z wynikiem operacji.
 
+---
+
 ```asm
 MOVI arg1, imm8
 ```
 kod `0x4000 + 0x100 * arg1 + imm8`
 
 Przepisuje wartość `imm8` do `arg1`. Nie modyfikuje znaczników.
+
+---
 
 ```asm
 XORI arg1, imm8
@@ -119,6 +133,8 @@ kod `0x5800 + 0x100 * arg1 + imm8`
 
 Wykonuje bitową rozłączną alternatywę `arg1` i `imm8`. Umieszcza wynik w `arg1`. Ustawia znacznik Z zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
 
+---
+
 ```asm
 ADDI arg1, imm8
 ```
@@ -126,6 +142,8 @@ ADDI arg1, imm8
 kod `0x6000 + 0x100 * arg1 + imm8`
 
 Dodaje wartość `imm8` do `arg1`. Ustawia znacznik Z zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
+
+---
 
 ```asm
 CMPI arg1, imm8
@@ -135,6 +153,8 @@ kod `0x6800 + 0x100 * arg1 + imm8`
 
 Odejmuje wartość `imm8` od `arg1`, ale nie zapisuje wyniku. Ustawia znaczniki `C` i `Z` zgodnie z wynikiem operacji.
 
+---
+
 ```asm
 RCR arg1
 ```
@@ -143,6 +163,8 @@ kod `0x7001 + 0x100 * arg1`
 
 Rotuje zawartość `arg` o jeden bit w prawo poprzez znacznik `C`. Nie modyfikuje znacznika `Z`.
 
+---
+
 ```asm
 CLC
 ```
@@ -150,6 +172,9 @@ CLC
 kod `0x8000`
 
 Zeruje znacznik `C`. Nie modyfikuje znacznika `Z`.
+
+---
+
 ```asm
 STC
 ```
@@ -157,6 +182,8 @@ STC
 kod `0x8100`
 
 Ustawia znacznik `C`. Nie modyfikuje znacznika `Z`.
+
+---
 
 ```asm
 JMP imm8
@@ -166,6 +193,8 @@ kod `0xC000 + imm8`
 
 Wykonuje skok bezwarunkowy względny. Nie modyfikuje znaczników.
 
+---
+
 ```asm
 JNC imm8
 ```
@@ -173,6 +202,8 @@ JNC imm8
 kod `0xC200 + imm8`
 
 Wykonuje skok względny, gdy znacznik `C` nie jest ustawiony. Nie modyfikuje znaczników.
+
+---
 
 ```asm
 JC imm8
@@ -182,6 +213,8 @@ kod `0xC300 + imm8`
 
 Wykonuje skok względny, gdy znacznik `C` jest ustawiony. Nie modyfikuje znaczników.
 
+---
+
 ```asm
 JNZ imm8
 ```
@@ -190,6 +223,8 @@ kod `0xC400 + imm8`
 
 Wykonuje skok względny, gdy znacznik `Z` nie jest ustawiony. Nie modyfikuje znaczników.
 
+---
+
 ```asm
 JZ imm8
 ```
@@ -197,6 +232,8 @@ JZ imm8
 kod `0xC500 + imm8`
 
 Wykonuje skok względny, gdy znacznik `Z` jest ustawiony. Nie modyfikuje znaczników.
+
+---
 
 ```asm
 BRK
@@ -273,6 +310,8 @@ kod `0x0001 + 0x100 * arg1 + 0x0800 * arg2`
 
 Wykonuje bitową koniunkcję `arg1` i `arg2`. Umieszcza wynik w `arg1`. Ustawia znacznik `Z` zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
 
+---
+
 ```asm
 XOR arg1, arg2
 ```
@@ -280,6 +319,8 @@ XOR arg1, arg2
 kod `0x0003 + 0x100 * arg1 + 0x0800 * arg2`
 
 Wykonuje bitową rozłączną alternatywę `arg1` i `arg2`. Umieszcza wynik w `arg1`. Ustawia znacznik `Z` zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
+
+---
 
 ```asm
 ANDI arg1, imm8
@@ -289,6 +330,8 @@ kod `0x4800 + 0x100 * arg1 + imm8`
 
 Wykonuje bitową koniunkcję `arg1` i `imm8`. Umieszcza wynik w `arg1`. Ustawia znacznik `Z` zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
 
+---
+
 ```asm
 ORI arg1, imm8
 ```
@@ -297,6 +340,8 @@ kod `0x5000 + 0x100 * arg1 + imm8`
 
 Wykonuje bitową alternatywę `arg1` i `imm8`. Umieszcza wynik w `arg1`. Ustawia znacznik `Z` zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
 
+---
+
 ```asm
 RCRI arg1, imm8
 ```
@@ -304,6 +349,8 @@ RCRI arg1, imm8
 kod `0x7000 + 0x100 * arg1 + imm8`
 
 Rotuje zawartość `arg` o `imm8` bitów w prawo poprzez znacznik `C`. Nie modyfikuje znacznika `Z`.
+
+---
 
 ```asm
 DJNZ imm8
