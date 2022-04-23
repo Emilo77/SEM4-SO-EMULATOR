@@ -63,7 +63,7 @@ mov r9b, PC
 mov ax, word [rdi + 2 * r9] ; pobieramy instrukcję
 
 cmp ah, 0x40 ; sprawdzenie, czy to instrukcja dwuargumentowa
-jl check_two_args_i ; jeśli tak, to sprawdzamy która dokładnie
+jb check_two_args_i ; jeśli tak, to sprawdzamy która dokładnie
 
 mov arg2, byte al ; pobieramy drugi argument
 mov dl, byte ah
@@ -74,7 +74,7 @@ sub arg1_code, dl ; arg1_code = {0, 1, 2, 3, 4, 5, 6, 7}
 mov rbx, registers
 
 cmp arg1_code, 3
-jg arg1_code_4
+ja arg1_code_4
 
 add bl, byte arg1_code ; rbx = registers + arg1_code
 mov arg1, byte [rbx] ; arg1 = [registers + 0] lub [registers + 1] lub [registers + 2] lub [registers + 3]
@@ -111,8 +111,8 @@ mov rbx, rsi ; [rbx] = data[0]
 add bl, r10b ; [rbx] = data[D]
 add bl, r9b ; [rbx] = data[D + X]
 mov arg1, byte [rbx] ; arg1 = [data[D + X]]
-
 jmp pick_instruction
+
 arg1_code_7:
 inc bl
 mov r10b, byte [rbx] ; r10b = D
@@ -126,17 +126,17 @@ mov arg1, byte [rbx] ; arg1 = [data[D + Y]]
 pick_instruction:
 
 cmp ah, 0x48 ; sprawdzenie, czy instrukcja to MOVI
-jl movi_i
+jb movi_i
 cmp ah, 0x58 ; sprawdzenie, czy instrukcja niepoprawna
-jl ignore
+jb ignore
 cmp ah, 0x60 ; sprawdzenie, czy instruxja to XORI
-jl xori_i
+jb xori_i
 cmp ah, 0x68 ; sprawdzenie, czy instrukcja to ADDI
-jl addi_i
+jb addi_i
 cmp ah, 0x70 ; sprawdzenie, czy instrukcja to CMPI
-jl cmpi_i
+jb cmpi_i
 cmp ah, 0x78 ; sprawdzenie, czy instrukcją może być RCR
-jl check_rcr
+jb check_rcr
 cmp ah, 0x80 ; sprawdzenie, czy instrukcją może być CLC
 je check_clc
 cmp ah, 0x81 ; sprawdzenie, czy instrukcją może być STC
@@ -165,69 +165,109 @@ shl dl, 3
 sub arg1_code, dl ; arg1_code = {0, 1, 2, 3, 4, 5, 6, 7}
 mov rbx, registers
 
-cmp arg1_code, 3
-jge two_arg1_code_4
-
-; todo dla arg1_code : {0 - 3}
-
-jmp two_next_arg
-two_arg1_code_4:
-cmp arg1_code, 4
-jne two_arg1_code_5
-
-; todo dla arg1_code : 4
-
-jmp two_next_arg
-two_arg1_code_5:
-cmp arg1_code, 5
-jne two_arg1_code_6
-
-; todo dla arg1_code : 5
-
-jmp two_next_arg
-two_arg1_code_6:
-cmp arg1_code, 6
-jne two_arg1_code_7
-
-; todo dla arg1_code : 6
-
-jmp two_next_arg
-two_arg1_code_7:
-
-; todo dla arg1_code : 7
-
-two_next_arg:
-
 cmp arg2_code, 3
-jge two_arg2_code_4
+ja two_arg2_code_4
 
-; todo dla arg2_code : {0 - 3}
+add bl, arg2_code
+mov arg2, byte [rbx]
+jmp two_set_arg1
 
-jmp two_pick_instruction
 two_arg2_code_4:
 cmp arg2_code, 4
 jne two_arg2_code_5
+add bl, 2
+mov r10b, byte [rbx] ; r10b = X
+mov rbx, rsi
+add bl, r10b
+mov arg2, byte [rbx] ; arg2 = [X]
+jmp two_set_arg1
 
-; todo dla arg2_code : 4
-
-jmp two_pick_instruction
 two_arg2_code_5:
 cmp arg2_code, 5
 jne two_arg2_code_6
+add bl, 3
+mov r10b, byte [rbx] ; r10b = Y
+mov rbx, rsi
+add bl, r10b
+mov arg2, byte [rbx] ; arg2 = [Y]
+jmp two_set_arg1
 
-; todo dla arg2_code : 5
-
-jmp two_pick_instruction
 two_arg2_code_6:
 cmp arg2_code, 6
 jne two_arg2_code_7
+inc bl
+mov r10b, byte [rbx] ; r10b = D
+inc bl
+mov r9b, byte [rbx] ; r9b = X
+mov rbx, rsi ; [rbx] = data[0]
+add bl, r10b ; [rbx] = data[D]
+add bl, r9b ; [rbx] = data[D + X]
+mov arg2, byte [rbx] ; arg2 = [data[D + X]]
+jmp two_set_arg1
 
-; todo dla arg2_code : 6
-
-jmp two_pick_instruction
 two_arg2_code_7:
+inc bl
+mov r10b, byte [rbx] ; r10b = D
+add bl, byte 2
+mov r9b, byte [rbx] ; r9b = Y
+mov rbx, rsi ; [rbx] = data[0]
+add bl, r10b ; [rbx] = data[D]
+add bl, r9b ; [rbx] = data[D + Y]
+mov arg2, byte [rbx] ; arg2 = [data[D + Y]]
 
-; todo dla arg2_code : 7
+two_set_arg1:
+xor rbx, rbx
+mov rbx, registers
+
+cmp arg1_code, 3
+ja two_arg1_code_4
+
+add bl, byte arg1_code ; rbx = registers + arg1_code
+mov arg1, byte [rbx] ; arg1 = [registers + 0] lub [registers + 1] lub [registers + 2] lub [registers + 3]
+jmp two_pick_instruction
+
+two_arg1_code_4:
+cmp arg1_code, 4
+jne two_arg1_code_5
+add bl, 2
+mov r10b, byte [rbx] ; r10b = X
+mov rbx, rsi
+add bl, r10b
+mov arg1, byte [rbx] ; arg1 = [X]
+jmp two_pick_instruction
+
+two_arg1_code_5:
+cmp arg1_code, 5
+jne two_arg1_code_6
+add bl, 3
+mov r10b, byte [rbx] ; r10b = Y
+mov rbx, rsi
+add bl, r10b
+mov arg1, byte [rbx] ; arg1 = [Y]
+jmp two_pick_instruction
+
+two_arg1_code_6:
+cmp arg1_code, 6
+jne two_arg1_code_7
+inc bl
+mov r10b, byte [rbx] ; r10b = D
+inc bl
+mov r9b, byte [rbx] ; r9b = X
+mov rbx, rsi ; [rbx] = data[0]
+add bl, r10b ; [rbx] = data[D]
+add bl, r9b ; [rbx] = data[D + X]
+mov arg1, byte [rbx] ; arg1 = [data[D + X]]
+jmp two_pick_instruction
+
+two_arg1_code_7:
+inc bl
+mov r10b, byte [rbx] ; r10b = D
+add bl, byte 2
+mov r9b, byte [rbx] ; r9b = Y
+mov rbx, rsi ; [rbx] = data[0]
+add bl, r10b ; [rbx] = data[D]
+add bl, r9b ; [rbx] = data[D + Y]
+mov arg1, byte [rbx] ; arg1 = [data[D + Y]]
 
 two_pick_instruction:
 
@@ -414,11 +454,7 @@ xchg_i:
 
 end:
 
-
-
-
 mov rax, [rel registers] ;wypełnienie rax wszystkimi elementami struktury
-
 
 pop r15
 pop r14
