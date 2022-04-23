@@ -1,6 +1,5 @@
 global so_emul
 
-
 %ifndef CORES
 %define CORES 4
 %endif
@@ -30,23 +29,19 @@ global so_emul
 %define C [rel registers + 6]
 %define Z [rel registers + 7]
 
-
-section .rodata
-
 section .bss
 
 registers resb 8
 
 section .text
 so_emul:
-
 	push rbx
 	push r12
 	push r13
 	push r14
 	push r15
 
-	xor r11, r11 ; zmienna pomocnicza
+	xor r11, r11 ; arg1_code
 	xor r12, r12
 	xor r13, r13
 	xor r14, r14 ; index pierwszego argumentu
@@ -54,21 +49,21 @@ so_emul:
 
 	mov r12, rcx ; ilość rdzeni trzymana w r12
 	mov r13, rdx ; ilość instrukcji trzymana w r13
-
-	xor rax, rax ; aktualna instrukcja
+	xor rax, rax
 	xor rbx, rbx
-	xor rcx, rcx ; counter instrukcji
+	xor rcx, rcx
 
 	cmp r13, 0 ; sprawdzenie, czy liczba instrukcji jest równa 0
-	jne instruction_loop ; jeśli nie, orzechodzimy do pętli
+	jne instruction_loop ; jeśli nie, przechodzimy do pętli
 	jmp end ; jeśli tak, wychodzimy z programu
 
 instruction_loop:
 	xor arg1, arg1 ; zerowanie argumentów funkcji
 	xor arg2, arg2 ; zerowanie argumentów funkcji
-	;xor rbx, rbx
+	xor rbx, rbx
 	xor r9, r9
 	mov r9b, PC
+	inc byte PC
 	mov ax, word [rdi + 2 * r9] ; pobieramy instrukcję
 
 	cmp ah, 0x40 ; sprawdzenie, czy to instrukcja dwuargumentowa
@@ -133,7 +128,6 @@ arg1_code_7:
 	mov arg1, byte [rbx] ; arg1 = [data[D + Y]]
 
 pick_instruction:
-
 	compare_jump_less ah, 0x48, movi_i
 	compare_jump_less ah, 0x58, ignore
 	compare_jump_less ah, 0x60, xori_i
@@ -148,37 +142,7 @@ pick_instruction:
 	compare_jump_equal ah, 0xc4, jnz_i
 	compare_jump_equal ah, 0xc5, jz_i
 	compare_jump_equal ah, 0xff, check_brk
-
-;	cmp ah, 0x48 ; sprawdzenie, czy instrukcja to MOVI
-;	jb movi_i
-;	cmp ah, 0x58 ; sprawdzenie, czy instrukcja niepoprawna
-;	jb ignore
-;	cmp ah, 0x60 ; sprawdzenie, czy instruxja to XORI
-;	jb xori_i
-;	cmp ah, 0x68 ; sprawdzenie, czy instrukcja to ADDI
-;	jb addi_i
-;	cmp ah, 0x70 ; sprawdzenie, czy instrukcja to CMPI
-;	jb cmpi_i
-;	cmp ah, 0x78 ; sprawdzenie, czy instrukcją może być RCR
-;	jb check_rcr
-;	cmp ah, 0x80 ; sprawdzenie, czy instrukcją może być CLC
-;	je check_clc
-;	cmp ah, 0x81 ; sprawdzenie, czy instrukcją może być STC
-;	je check_stc
-;	cmp ah, 0xc0 ; sprawdzenie, czy instrukcja to JMP
-;	je jmp_i
-;	cmp ah, 0xc2 ; sprawdzenie, czy instrukcja to JNC
-;	je jnc_i
-;	cmp ah, 0xc3 ; sprawdzenie, czy instrukcja to JC
-;	je jc_i
-;	cmp ah, 0xc4 ; sprawdzenie, czy instrukcja to JNZ
-;	je jnz_i
-;	cmp ah, 0xc5 ; sprawdzenie, czy instrukcja to JZ
-;	je jz_i
-;	cmp ah, 0xff ; sprawdzenie, czy instrukcja to BRK
-;	je check_brk
 	jmp ignore ; jeśli jest niepoprawna, ignorujemy
-
 
 check_two_args_i:
 	mov dl, byte ah
@@ -294,7 +258,6 @@ two_arg1_code_7:
 	mov arg1, byte [rbx] ; arg1 = [data[D + Y]]
 
 two_pick_instruction:
-
 	compare_jump_equal al, 0x0, mov_i
 	compare_jump_equal al, 0x2, or_i
 	compare_jump_equal al, 0x4, add_i
@@ -302,51 +265,28 @@ two_pick_instruction:
 	compare_jump_equal al, 0x6, adc_i
 	compare_jump_equal al, 0x7, sbb_i
 	compare_jump_equal al, 0x8, xchg_i
-;	cmp al, 0x0 ; sprawdzenie, czy instrukcja to MOV
-;	je mov_i
-;	cmp al, 0x2 ; sprawdzenie, czy instrukcja to OR
-;	je or_i
-;	cmp al, 0x4 ; sprawdzenie, czy instrukcja to ADD
-;	je add_i
-;	cmp al, 0x5 ; sprawdzenie, czy instrukcja to SUB
-;	je sub_i
-;	cmp al, 0x6 ; sprawdzenie, czy instrukcja to ADC
-;	je adc_i
-;	cmp al, 0x7 ; sprawdzenie, czy instrukcja to SBB
-;	je sbb_i
-;	cmp al, 0x8 ; sprawdzenie, czy instrukcja to XCHG
-;	je xchg_i
 	jmp ignore
 
 check_rcr:
 	compare_jump_equal al, 0x1, rcr_i
-;	cmp al, 0x1
-;	je rcr_i
 	jmp ignore
 
 check_clc:
 	compare_jump_equal al, 0x0, clc_i
-;	cmp al, 0x0
-;	je clc_i
 	jmp ignore
 
 check_stc:
 	compare_jump_equal al, 0x0, stc_i
-;	cmp al, 0x0
-;	je stc_i
 	jmp ignore
 
 check_brk:
-	compare_jump_equal al, 0xff, brk_i
-;	cmp al, 0xff
-;	je brk_i
+	compare_jump_equal al, 0xff, end
 	jmp ignore
 
 
 ignore:
 instruction_done:
 	mov [rbx], arg1
-	inc byte PC
 	inc rcx
 	cmp rcx, r13 ;sprawdzamy, czy wykonaliśmy już steps instrukcji
 	jne instruction_loop ; jeśli nie, to parsujemy i wykonujemy kolejną
@@ -383,9 +323,9 @@ adc_i:
 	mov Z, byte 0
 	mov C, byte 0
 	adc arg1, arg2
-	jnz adc_check_C_flag
+	jnz .adc_check_C_flag
 	mov Z, byte 1
-adc_check_C_flag:
+.adc_check_C_flag:
 	jnc instruction_done
 	mov C, byte 1
 	jmp instruction_done
@@ -394,9 +334,9 @@ sbb_i:
 	mov Z, byte 0
 	mov C, byte 0
 	sbb arg1, arg2
-	jnz sbb_check_C_flag
+	jnz .sbb_check_C_flag
 	mov Z, byte 1
-sbb_check_C_flag:
+.sbb_check_C_flag:
 	jnc instruction_done
 	mov C, byte 1
 	jmp instruction_done
@@ -424,9 +364,9 @@ cmpi_i:
 	mov Z, byte 0
 	mov C, byte 0
 	cmp arg1, imm8
-	jnz cmpi_check_C_flag
+	jnz .cmpi_check_C_flag
 	mov Z, byte 1
-cmpi_check_C_flag:
+.cmpi_check_C_flag:
 	jnc instruction_done
 	mov C, byte 1
 	jmp instruction_done
@@ -435,12 +375,12 @@ rcr_i:
 	mov r9b, arg1 ; r9b będzie następnym C
 	and r9b, 01
 	cmp C, byte 1
-	jnz rcr_i_dont_set_CF
+	jnz .rcr_i_dont_set_CF
 	stc
-	jmp rcr_i_shift
-rcr_i_dont_set_CF:
+	jmp .rcr_i_shift
+.rcr_i_dont_set_CF:
 	clc
-rcr_i_shift:
+.rcr_i_shift:
 	rcr arg1, 1
 	mov C, byte r9b
 	jmp instruction_done
@@ -481,15 +421,12 @@ jz_i:
 	add PC, imm8
 	jmp instruction_done
 
-brk_i:
-	jmp end
-
 xchg_i:
 
 end:
-
 	mov rax, [rel registers] ;wypełnienie rax wszystkimi elementami struktury
-
+	mov rcx, r12 ; przywrócenie argumentu funkcji
+  mov rdx, r13 ; przywrócenie argumentu funkcji
 	pop r15
 	pop r14
 	pop r13
