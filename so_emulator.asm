@@ -5,8 +5,8 @@ global so_emul
 %define CORES 4
 %endif
 
-%define carry_flag r12b
-%define zero_flag r13b
+
+%define arg1_code r11b
 %define arg1 r14b
 %define arg2 r15b
 %define imm8 r15b
@@ -16,95 +16,94 @@ global so_emul
 %define X [rel registers + 2]
 %define Y [rel registers + 3]
 %define PC [rel registers + 4]
-%define C [rel registers + 5]
-%define Z [rel registers + 6]
+%define UNUSED [rel registers + 5]
+%define C [rel registers + 6]
+%define Z [rel registers + 7]
 
 
 section .rodata
 
 section .bss
 
-registers resb 7
+registers resb 8
 
 section .text
 so_emul:
 
+push rbx
 push r12
 push r13
 push r14
 push r15
-push rbp
-push rbx
 
+xor r11, r11 ; zmienna pomocnicza
 xor r12, r12
 xor r13, r13
 xor r14, r14 ; index pierwszego argumentu
-xor r15, r15 ; zmienna pomocnicza
+xor r15, r15 ; index drugiego argumentu lub imm8
 
 mov r12, rcx ; ilość rdzeni trzymana w r12
 mov r13, rdx ; ilość instrukcji trzymana w r13
 
+xor rax, rax ; aktualna instrukcja
+xor rbx, rbx
 xor rcx, rcx ; counter instrukcji
-xor rbx, rbx ; aktualna instrukcja
-xor rax, rax
-parse_instruction_loop:
-mov ax, word [rdi + 2 * rcx]
 
-cmp ah, 0x40
-jl check_two_args_i
+instruction_loop:
+xor arg1, arg1 ; zerowanie argumentów funkcji
+xor arg2, arg2 ; zerowanie argumentów funkcji
+mov ax, word [rdi + 2 * r13] ; pobieramy instrukcję
+
+cmp ah, 0x40 ; sprawdzenie, czy to instrukcja dwuargumentowa
+jl check_two_args_i ; jeśli tak, to sprawdzamy która dokładnie
 
 mov dl, byte ah
-mov r15b, byte dl
+mov arg1_code, byte dl
 shr dl, 3
 shl dl, 3
-sub r15b, dl
-mov rbx, registers
-add bl, r15b
-mov arg1, byte [rbx] ; todo check
+sub arg1_code, dl
+mov arg2, byte al
+;todo ustawić dobrze arg1
 
-
-cmp ah, 0x48
+cmp ah, 0x48 ; sprawdzenie, czy instrukcja to MOVI
 jl movi_i
-cmp ah, 0x58
+cmp ah, 0x58 ; sprawdzenie, czy instrukcja niepoprawna
 jl ignore
-cmp ah, 0x60
+cmp ah, 0x60 ; sprawdzenie, czy instruxja to XORI
 jl xori_i
-cmp ah, 0x68
+cmp ah, 0x68 ; sprawdzenie, czy instrukcja to ADDI
 jl addi_i
-cmp ah, 0x70
+cmp ah, 0x70 ; sprawdzenie, czy instrukcja to CMPI
 jl cmpi_i
-cmp ah, 0x78
+cmp ah, 0x78 ; sprawdzenie, czy instrukcją może być RCR
 jl check_rcr
-cmp ah, 0x80
+cmp ah, 0x80 ; sprawdzenie, czy instrukcją może być CLC
 je check_clc
-cmp ah, 0x81
+cmp ah, 0x81 ; sprawdzenie, czy instrukcją może być STC
 je check_stc
-cmp ah, 0xc0
+cmp ah, 0xc0 ; sprawdzenie, czy instrukcja to JMP
 je jmp_i
-cmp ah, 0xc2
+cmp ah, 0xc2 ; sprawdzenie, czy instrukcja to JNC
 je jnc_i
-cmp ah, 0xc3
+cmp ah, 0xc3 ; sprawdzenie, czy instrukcja to JC
 je jc_i
-cmp ah, 0xc4
+cmp ah, 0xc4 ; sprawdzenie, czy instrukcja to JNZ
 je jnz_i
-cmp ah, 0xc5
+cmp ah, 0xc5 ; sprawdzenie, czy instrukcja to JZ
 je jz_i
-cmp ah, 0xff
+cmp ah, 0xff ; sprawdzenie, czy instrukcja to BRK
 je check_brk
-jmp ignore
+jmp ignore ; jeśli jest niepoprawna, ignorujemy
 
 check_two_args_i:
-mov dl, byte ah
-mov r15b, dl
-shr dl, 3
-mov rbx, registers
-add bl, byte dl
-mov arg2, [rbx]
-shl dl, 3
-sub r15b, dl
-mov rbx, registers
-add bl, byte r15b
-mov arg1, [rbx] ;todo sprawdzić
+;mov dl, byte ah
+;mov r11b, byte dl
+;shr dl, 3
+;shl dl, 3
+;sub r11b, dl ; r11b to kod arg1
+;
+;mov arg2, byte al
+;todo ustawić dobrze arg1 i arg2
 
 
 cmp al, 0x0
@@ -146,94 +145,135 @@ jmp ignore
 
 ignore:
 instruction_done:
+;todo zapisać arg1 do rejestru
 inc byte PC
+instruction_done_after_jump:
 inc rcx
-
-
+cmp rcx, r13 ;sprawdzamy, czy wykonaliśmy już steps instrukcji
+jne instruction_loop ; jeśli nie, to parsujemy i wykonujemy kolejną
+jmp end ; jeśli wszystkie, kończymy program
 
 
 mov_i:
-mov arg1, arg2
-jmp instruction_done
+mov arg1, arg2 ; przypisujemy do arg1 wartość arg2
+jmp instruction_done ; zakończenie instrukcji
 
 or_i:
-xor zero_flag, zero_flag
+mov Z, byte 0 ; zerujemy Z
 or arg1, arg2
-jnz instruction_done
-mov zero_flag, 1
-jmp instruction_done
+jnz instruction_done ; jeśli flaga Z nieustawiona, kończymy instrukcję
+mov Z, byte 1 ; ustawiamy flagę Z
+jmp instruction_done ; zakończenie instrukcji
+
 
 add_i:
-xor zero_flag, zero_flag
+mov Z, byte 0 ; zerujemy Z
 add arg1, arg2
-jnz instruction_done
-mov zero_flag, 1
-jmp instruction_done
+jnz instruction_done ; jeśli flaga Z nieustawiona, kończymy instrukcję
+mov Z, byte 1 ; ustawiamy flagę Z
+jmp instruction_done ; zakończenie instrukcji
 
 sub_i:
-xor zero_flag, zero_flag
+mov Z, byte 0 ; zerujemy Z
 sub arg1, arg2
-jnz instruction_done
-mov zero_flag, 1
-jmp instruction_done
+jnz instruction_done ; jeśli flaga Z nieustawiona, kończymy instrukcję
+mov Z, byte 1 ; ustawiamy flagę Z
+jmp instruction_done ; zakończenie instrukcji
 
 adc_i:
-xor zero_flag, zero_flag
-add arg1, arg2
-add arg1, carry_flag
-;todo ustawić flagi
+mov Z, byte 0
+mov C, byte 0
+adc arg1, arg2
+jnz adc_check_C_flag ; todo sprawdzić, czy jnz zeruje carry flag
+mov Z, byte 1
+adc_check_C_flag:
+jnc instruction_done
+mov C, byte 1
+jmp instruction_done
 
 sbb_i:
-xor zero_flag, zero_flag
-sub arg1, arg2
-sub arg1, carry_flag
-;todo ustawić flagi
+mov Z, byte 0
+mov C, byte 0
+sbb arg1, arg2
+jnz sbb_check_C_flag ; todo sprawdzić, czy jnz zeruje carry flag
+mov Z, byte 1
+sbb_check_C_flag:
+jnc instruction_done
+mov C, byte 1
+jmp instruction_done
 
 movi_i:
 mov arg1, imm8
+jmp instruction_done
 
 xori_i:
-xor zero_flag, zero_flag
+mov Z, byte 0 ; zerujemy Z
 xor arg1, imm8
-jnz instruction_done
-mov zero_flag, 1
-jmp instruction_done
+jnz instruction_done ; jeśli flaga Z nieustawiona, kończymy instrukcję
+mov Z, byte 1 ; ustawiamy flagę Z
+jmp instruction_done ; zakończenie instrukcji
+
 
 addi_i:
-xor zero_flag, zero_flag
+mov Z, byte 0 ; zerujemy Z
 add arg1, imm8
-jnz instruction_done
-mov zero_flag, 1
-jmp instruction_done
+jnz instruction_done ; jeśli flaga Z nieustawiona, kończymy instrukcję
+mov Z, byte 1 ; ustawiamy flagę Z
+jmp instruction_done ; zakończenie instrukcji
 
 cmpi_i:
-xor carry_flag, carry_flag
-xor zero_flag, zero_flag
+mov Z, byte 0
+mov C, byte 0
 cmp arg1, imm8
-;todo ustawić flagi
-
+jnz cmpi_check_C_flag ; todo sprawdzić, czy jnz zeruje carry flag
+mov Z, byte 1
+cmpi_check_C_flag:
+jnc instruction_done
+mov C, byte 1
+jmp instruction_done
 
 rcr_i:
-cmp carry_flag, 0
-je instruction_done
-shr arg1, 1
-xor carry_flag, carry_flag
+cmp C, byte 0
+jz instruction_done
+shr arg1, 1 ; może shl?
+mov C, byte 0
 jmp instruction_done
 
 clc_i:
-xor carry_flag, carry_flag
+mov C, byte 0
 jmp instruction_done
 
 stc_i:
-mov carry_flag, 1
+mov C, byte 1
 jmp instruction_done
 
 jmp_i:
-jnc_i:
-jc_i:
-jnz_i:
-jz_i:
+add PC, imm8
+jmp instruction_done
 
+jnc_i:
+cmp C, byte 0
+jnz instruction_done
+add PC, imm8
+jmp instruction_done
+
+jc_i:
+cmp C, byte 0
+jz instruction_done
+add PC, imm8
+jmp instruction_done
+
+jnz_i:
+cmp Z, byte 0
+jnz instruction_done
+add PC, imm8
+jmp instruction_done
+
+jz_i:
+cmp Z, byte 0
+jz instruction_done
+add PC, imm8
+jmp instruction_done
 
 brk_i:
 jmp end
@@ -242,13 +282,16 @@ xchg_i:
 
 end:
 
-;wypełnienie rax wszystkimi elementami struktury
 
-pop rbx
-pop rbp
+
+
+mov rax, [rel registers] ;wypełnienie rax wszystkimi elementami struktury
+;todo może trzeba przesunąć wskaźnik na code
+
 pop r15
 pop r14
 pop r13
 pop r12
+pop rbx
 
 ret
