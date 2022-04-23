@@ -7,6 +7,7 @@ global so_emul
 
 
 %define arg1_code r11b
+%define arg2_code r10b
 %define arg1 r14b
 %define arg2 r15b
 %define imm8 r15b
@@ -49,7 +50,12 @@ xor rax, rax ; aktualna instrukcja
 xor rbx, rbx
 xor rcx, rcx ; counter instrukcji
 
+cmp r13, 0 ; sprawdzenie, czy liczba instrukcji jest równa 0
+jne instruction_loop ; jeśli nie, orzechodzimy do pętli
+jmp end ; jeśli tak, wychodzimy z programu
+
 instruction_loop:
+
 xor arg1, arg1 ; zerowanie argumentów funkcji
 xor arg2, arg2 ; zerowanie argumentów funkcji
 mov ax, word [rdi + 2 * r13] ; pobieramy instrukcję
@@ -57,13 +63,65 @@ mov ax, word [rdi + 2 * r13] ; pobieramy instrukcję
 cmp ah, 0x40 ; sprawdzenie, czy to instrukcja dwuargumentowa
 jl check_two_args_i ; jeśli tak, to sprawdzamy która dokładnie
 
+mov arg2, byte al ; pobieramy drugi argument
 mov dl, byte ah
 mov arg1_code, byte dl
 shr dl, 3
 shl dl, 3
-sub arg1_code, dl
-mov arg2, byte al
-;todo ustawić dobrze arg1
+sub arg1_code, dl ; arg1_code = {0, 1, 2, 3, 4, 5, 6, 7}
+mov rbx, registers
+
+cmp arg1_code, 3
+jge arg1_code_4
+
+add bl, byte arg1_code ; rbx = registers + arg1_code
+mov arg1, byte [rbx] ; arg1 = [registers + 0] lub [registers + 1] lub [registers + 2] lub [registers + 3]
+jmp pick_instruction
+
+arg1_code_4:
+cmp arg1_code, 4
+jne arg1_code_5
+add bl, 2
+mov r10b, byte [rbx] ; r10b = X
+mov rbx, rsi
+add bl, r10b
+mov arg1, byte [rbx] ; arg1 = [X]
+jmp pick_instruction
+
+arg1_code_5:
+cmp arg1_code, 5
+jne arg1_code_6
+add bl, 3
+mov r10b, byte [rbx] ; r10b = Y
+mov rbx, rsi
+add bl, r10b
+mov arg1, byte [rbx] ; arg1 = [Y]
+jmp pick_instruction
+
+arg1_code_6:
+cmp arg1_code, 6
+jne arg1_code_7
+inc bl
+mov r10b, byte [rbx] ; r10b = D
+inc bl
+mov r9b, byte [rbx] ; r9b = X
+mov rbx, rsi ; [rbx] = data[0]
+add bl, r10b ; [rbx] = data[D]
+add bl, r9b ; [rbx] = data[D + X]
+mov arg1, byte [rbx] ; arg1 = [data[D + X]]
+
+jmp pick_instruction
+arg1_code_7:
+inc bl
+mov r10b, byte [rbx] ; r10b = D
+add bl, byte 2
+mov r9b, byte [rbx] ; r9b = Y
+mov rbx, rsi ; [rbx] = data[0]
+add bl, r10b ; [rbx] = data[D]
+add bl, r9b ; [rbx] = data[D + Y]
+mov arg1, byte [rbx] ; arg1 = [data[D + Y]]
+
+pick_instruction:
 
 cmp ah, 0x48 ; sprawdzenie, czy instrukcja to MOVI
 jl movi_i
@@ -96,18 +154,21 @@ je check_brk
 jmp ignore ; jeśli jest niepoprawna, ignorujemy
 
 check_two_args_i:
-;mov dl, byte ah
-;mov r11b, byte dl
-;shr dl, 3
-;shl dl, 3
-;sub r11b, dl ; r11b to kod arg1
-;
-;mov arg2, byte al
-;todo ustawić dobrze arg1 i arg2
+mov dl, byte ah
+mov arg1_code, byte dl
+shr dl, 3
+mov arg2_code, dl ; arg2_code = {0, 1, 2, 3, 4, 5, 6, 7}
+shl dl, 3
+sub arg1_code, dl ; arg1_code = {0, 1, 2, 3, 4, 5, 6, 7}
+mov rbx, registers
+
+cmp arg1_code, 3
+jge arg1_code_4
 
 
 cmp al, 0x0 ; sprawdzenie, czy instrukcja to MOV
 je mov_i
+
 cmp al, 0x2 ; sprawdzenie, czy instrukcja to OR
 je or_i
 cmp al, 0x4 ; sprawdzenie, czy instrukcja to ADD
@@ -145,9 +206,8 @@ jmp ignore
 
 ignore:
 instruction_done:
-;todo zapisać arg1 do rejestru
+mov [rbx], arg1
 inc byte PC
-instruction_done_after_jump:
 inc rcx
 cmp rcx, r13 ;sprawdzamy, czy wykonaliśmy już steps instrukcji
 jne instruction_loop ; jeśli nie, to parsujemy i wykonujemy kolejną
@@ -184,7 +244,7 @@ adc_i:
 mov Z, byte 0
 mov C, byte 0
 adc arg1, arg2
-jnz adc_check_C_flag ; todo sprawdzić, czy jnz zeruje carry flag
+jnz adc_check_C_flag
 mov Z, byte 1
 adc_check_C_flag:
 jnc instruction_done
@@ -195,7 +255,7 @@ sbb_i:
 mov Z, byte 0
 mov C, byte 0
 sbb arg1, arg2
-jnz sbb_check_C_flag ; todo sprawdzić, czy jnz zeruje carry flag
+jnz sbb_check_C_flag
 mov Z, byte 1
 sbb_check_C_flag:
 jnc instruction_done
@@ -225,7 +285,7 @@ cmpi_i:
 mov Z, byte 0
 mov C, byte 0
 cmp arg1, imm8
-jnz cmpi_check_C_flag ; todo sprawdzić, czy jnz zeruje carry flag
+jnz cmpi_check_C_flag
 mov Z, byte 1
 cmpi_check_C_flag:
 jnc instruction_done
@@ -233,10 +293,17 @@ mov C, byte 1
 jmp instruction_done
 
 rcr_i:
-cmp C, byte 0
-jz instruction_done
-shr arg1, 1 ; może shl?
-mov C, byte 0
+mov r8b, arg1 ; r8b będzie następnym C
+and r8b, 01
+cmp C, byte 1
+jnz rcr_i_dont_set_CF
+stc
+jmp rcr_i_shift
+rcr_i_dont_set_CF:
+clc
+rcr_i_shift:
+rcr arg1, 1
+mov C, byte r8b
 jmp instruction_done
 
 clc_i:
@@ -286,7 +353,7 @@ end:
 
 
 mov rax, [rel registers] ;wypełnienie rax wszystkimi elementami struktury
-;todo może trzeba przesunąć wskaźnik na code
+
 
 pop r15
 pop r14
