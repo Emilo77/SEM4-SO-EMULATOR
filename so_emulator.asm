@@ -106,19 +106,19 @@ check_two_args_i:
 ;todo ustawić dobrze arg1 i arg2
 
 
-cmp al, 0x0
+cmp al, 0x0 ; sprawdzenie, czy instrukcja to MOV
 je mov_i
-cmp al, 0x2
+cmp al, 0x2 ; sprawdzenie, czy instrukcja to OR
 je or_i
-cmp al, 0x4
+cmp al, 0x4 ; sprawdzenie, czy instrukcja to ADD
 je add_i
-cmp al, 0x5
+cmp al, 0x5 ; sprawdzenie, czy instrukcja to SUB
 je sub_i
-cmp al, 0x6
+cmp al, 0x6 ; sprawdzenie, czy instrukcja to ADC
 je adc_i
-cmp al, 0x7
+cmp al, 0x7 ; sprawdzenie, czy instrukcja to SBB
 je sbb_i
-cmp al, 0x8
+cmp al, 0x8 ; sprawdzenie, czy instrukcja to XCHG
 je xchg_i
 jmp ignore
 
