@@ -55,10 +55,12 @@ jne instruction_loop ; jeśli nie, orzechodzimy do pętli
 jmp end ; jeśli tak, wychodzimy z programu
 
 instruction_loop:
-
 xor arg1, arg1 ; zerowanie argumentów funkcji
 xor arg2, arg2 ; zerowanie argumentów funkcji
-mov ax, word [rdi + 2 * r13] ; pobieramy instrukcję
+;xor rbx, rbx
+xor r9, r9
+mov r9b, PC
+mov ax, word [rdi + 2 * r9] ; pobieramy instrukcję
 
 cmp ah, 0x40 ; sprawdzenie, czy to instrukcja dwuargumentowa
 jl check_two_args_i ; jeśli tak, to sprawdzamy która dokładnie
@@ -72,7 +74,7 @@ sub arg1_code, dl ; arg1_code = {0, 1, 2, 3, 4, 5, 6, 7}
 mov rbx, registers
 
 cmp arg1_code, 3
-jge arg1_code_4
+jg arg1_code_4
 
 add bl, byte arg1_code ; rbx = registers + arg1_code
 mov arg1, byte [rbx] ; arg1 = [registers + 0] lub [registers + 1] lub [registers + 2] lub [registers + 3]
@@ -153,6 +155,7 @@ cmp ah, 0xff ; sprawdzenie, czy instrukcja to BRK
 je check_brk
 jmp ignore ; jeśli jest niepoprawna, ignorujemy
 
+
 check_two_args_i:
 mov dl, byte ah
 mov arg1_code, byte dl
@@ -163,8 +166,70 @@ sub arg1_code, dl ; arg1_code = {0, 1, 2, 3, 4, 5, 6, 7}
 mov rbx, registers
 
 cmp arg1_code, 3
-jge arg1_code_4
+jge two_arg1_code_4
 
+; todo dla arg1_code : {0 - 3}
+
+jmp two_next_arg
+two_arg1_code_4:
+cmp arg1_code, 4
+jne two_arg1_code_5
+
+; todo dla arg1_code : 4
+
+jmp two_next_arg
+two_arg1_code_5:
+cmp arg1_code, 5
+jne two_arg1_code_6
+
+; todo dla arg1_code : 5
+
+jmp two_next_arg
+two_arg1_code_6:
+cmp arg1_code, 6
+jne two_arg1_code_7
+
+; todo dla arg1_code : 6
+
+jmp two_next_arg
+two_arg1_code_7:
+
+; todo dla arg1_code : 7
+
+two_next_arg:
+
+cmp arg2_code, 3
+jge two_arg2_code_4
+
+; todo dla arg2_code : {0 - 3}
+
+jmp two_pick_instruction
+two_arg2_code_4:
+cmp arg2_code, 4
+jne two_arg2_code_5
+
+; todo dla arg2_code : 4
+
+jmp two_pick_instruction
+two_arg2_code_5:
+cmp arg2_code, 5
+jne two_arg2_code_6
+
+; todo dla arg2_code : 5
+
+jmp two_pick_instruction
+two_arg2_code_6:
+cmp arg2_code, 6
+jne two_arg2_code_7
+
+; todo dla arg2_code : 6
+
+jmp two_pick_instruction
+two_arg2_code_7:
+
+; todo dla arg2_code : 7
+
+two_pick_instruction:
 
 cmp al, 0x0 ; sprawdzenie, czy instrukcja to MOV
 je mov_i
@@ -293,8 +358,8 @@ mov C, byte 1
 jmp instruction_done
 
 rcr_i:
-mov r8b, arg1 ; r8b będzie następnym C
-and r8b, 01
+mov r9b, arg1 ; r9b będzie następnym C
+and r9b, 01
 cmp C, byte 1
 jnz rcr_i_dont_set_CF
 stc
@@ -303,7 +368,7 @@ rcr_i_dont_set_CF:
 clc
 rcr_i_shift:
 rcr arg1, 1
-mov C, byte r8b
+mov C, byte r9b
 jmp instruction_done
 
 clc_i:
