@@ -127,11 +127,7 @@ static uint8_t data[MEM_SIZE];
 // PRZYKŁADY Z JEDNYM RDZENIEM
 
 static void single_core_simple_test(void) {
-  dump_cpu_state(0, so_emul(code_mov, data, 1, 0), data);
-  dump_cpu_state(0, so_emul(code_mov, data, 1, 0), data);
-  dump_cpu_state(0, so_emul(code_mov, data, 1, 0), data);
-  dump_cpu_state(0, so_emul(code_mov, data, 1, 0), data);
-
+  dump_cpu_state(0, so_emul(code_mov, data, 4, 0), data);
   dump_cpu_state(0, so_emul(code_mov, data, 7, 0), data);
   dump_memory(data);
 }

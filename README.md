@@ -112,7 +112,7 @@ SBB arg1, arg2
 
 kod `0x0007 + 0x100 * arg1 + 0x0800 * arg2`
 
-Odejmuje wartości `arg2` oraz `C` od `arg1`. Ustawia znaczniki `C` i Z zgodnie z wynikiem operacji.
+Odejmuje wartości `arg2` oraz `C` od `arg1`. Ustawia znaczniki `C` i `Z` zgodnie z wynikiem operacji.
 
 ---
 

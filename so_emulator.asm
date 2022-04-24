@@ -19,9 +19,17 @@ global so_emul
   jmp ignore
 %endmacro
 
+%macro compare_codes 6
+%1:
+	cmp %2, %3
+	jne %4
+	add bl, %5
+	jmp %6
+%endmacro
+
 %define arg1_code r11b
 %define arg2_code r10b
-%define arg1 r14b
+%define arg1 [rbx]
 %define arg2 r15b
 %define imm8 r15b
 
@@ -53,7 +61,6 @@ so_emul:
 	push r14
 	push r15
 
-	xor r11, r11 ; arg1_code
 	xor r12, r12
 	xor r13, r13
 	xor r14, r14 ; index pierwszego argumentu
@@ -70,7 +77,6 @@ so_emul:
 	jmp end ; jeśli tak, wychodzimy z programu
 
 instruction_loop:
-	xor arg1, arg1 ; zerowanie argumentów funkcji
 	xor arg2, arg2 ; zerowanie argumentów funkcji
 	xor rbx, rbx
 	xor r9, r9
@@ -84,16 +90,17 @@ instruction_loop:
 	mov arg2, byte al ; pobieramy drugi argument
 	mov dl, byte ah
 	mov arg1_code, byte dl
-	shr dl, 3
-	shl dl, 3
-	sub arg1_code, dl ; arg1_code = {0, 1, 2, 3, 4, 5, 6, 7}
+	and arg1_code, 7 ; and arg1_code, 00000111
+;	shr dl, 3
+;	shl dl, 3
+;	sub arg1_code, dl ; arg1_code = {0, 1, 2, 3, 4, 5, 6, 7}
 
 	cmp arg1_code, 3
 	ja data_changing
 
 	mov rbx, registers
 	add bl, byte arg1_code ; rbx = registers + arg1_code
-	jmp set_data_to_arg1
+	jmp pick_instruction
 
 data_changing:
 	mov rbx, rsi
@@ -102,27 +109,24 @@ arg1_code_4:
 	cmp arg1_code, 4
 	jne arg1_code_5
 	add bl, byte X
-	jmp set_data_to_arg1
+	jmp pick_instruction
 
 arg1_code_5:
 	cmp arg1_code, 5
 	jne arg1_code_6
 	add bl, byte Y
-	jmp set_data_to_arg1
+	jmp pick_instruction
 
 arg1_code_6:
 	cmp arg1_code, 6
 	jne arg1_code_7
 	add bl, byte X
 	add bl, byte D
-	jmp set_data_to_arg1
+	jmp pick_instruction
 
 arg1_code_7:
 	add bl, byte Y
 	add bl, byte D
-
-set_data_to_arg1:
-	mov arg1, byte [rbx] ;
 
 pick_instruction:
 	compare_jump_less ah, 0x48, movi_i
@@ -144,10 +148,9 @@ pick_instruction:
 check_two_args_i:
 	mov dl, byte ah
 	mov arg1_code, byte dl
-	shr dl, 3
-	mov arg2_code, dl ; arg2_code = {0, 1, 2, 3, 4, 5, 6, 7}
-	shl dl, 3
-	sub arg1_code, dl ; arg1_code = {0, 1, 2, 3, 4, 5, 6, 7}
+	mov arg2_code, dl
+	shr arg2_code, 3  ; arg2_code = {0, 1, 2, 3, 4, 5, 6, 7}
+	and arg1_code, 7 ; and arg1, 00000111 arg1_code = {0, 1, 2, 3, 4, 5, 6, 7}
 
 	cmp arg2_code, 3
 	ja two_arg2_set_data
@@ -191,7 +194,7 @@ two_set_arg1:
 
 	mov rbx, registers
 	add bl, byte arg1_code ; rbx = registers + arg1_code
-	jmp two_move_data_to_arg1
+	jmp two_pick_instruction
 
 two_arg1_set_data:
 	mov rbx, rsi
@@ -200,27 +203,24 @@ two_arg1_code_4:
 	cmp arg1_code, 4
 	jne two_arg1_code_5
 	add bl, byte X
-	jmp two_move_data_to_arg1
+	jmp two_pick_instruction
 
 two_arg1_code_5:
 	cmp arg1_code, 5
 	jne two_arg1_code_6
 	add bl, byte Y
-	jmp two_move_data_to_arg1
+	jmp two_pick_instruction
 
 two_arg1_code_6:
 	cmp arg1_code, 6
 	jne two_arg1_code_7
 	add bl, byte X
 	add bl, byte D
-	jmp two_move_data_to_arg1
+	jmp two_pick_instruction
 
 two_arg1_code_7:
 	add bl, byte Y
 	add bl, byte D
-
-two_move_data_to_arg1:
-	mov arg1, byte [rbx]
 
 two_pick_instruction:
 	compare_jump_equal al, 0x0, mov_i
@@ -242,7 +242,6 @@ check_brk:
 	instruction_or_ignore al, 0xff, end
 ignore:
 instruction_done:
-	mov [rbx], arg1
 	inc rcx
 	cmp rcx, r13 ;sprawdzamy, czy wykonaliśmy już steps instrukcji
 	jne instruction_loop ; jeśli nie, to parsujemy i wykonujemy kolejną
@@ -337,7 +336,7 @@ rcr_i:
 .rcr_i_dont_set_CF:
 	clc
 .rcr_i_shift:
-	rcr arg1, 1
+	rcr byte arg1, byte 1
 	mov C, byte r9b
 	jmp instruction_done
 
