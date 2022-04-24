@@ -42,18 +42,23 @@ global so_emul
 %define C [rel registers + 6]
 %define Z [rel registers + 7]
 
-section .data
-
-; Blokada otwarta ma wartość 0. Blokada zamknięta ma wartość 1.
-align 4
-spin_lock dd 0
-
 section .bss
 
 state resq CORES
 registers resb 8
 
 section .text
+
+set_arg1_and_imm8:
+mov imm8, 0
+mov rbx, [rsi] ; todo
+ret
+
+set_arg1_and_arg2:
+mov imm8, 0
+mov rbx, [rsi] ; todo
+ret
+
 so_emul:
 	push rbx
 	push r12
@@ -61,352 +66,209 @@ so_emul:
 	push r14
 	push r15
 
-	xor r12, r12
-	xor r13, r13
-	xor r14, r14 ; index pierwszego argumentu
-	xor r15, r15 ; index drugiego argumentu lub imm8
-
-	mov r12, rcx ; ilość rdzeni trzymana w r12
-	mov r13, rdx ; ilość instrukcji trzymana w r13
-	xor rax, rax
 	xor rbx, rbx
-	xor rcx, rcx
+	xor r10, r10
+	xor r12, r12
+  xor r13, r13
+  xor r14, r14
+  xor r15, r15
+
+  mov r12, rcx ; ilość rdzeni trzymana w r12
+  mov r13, rdx ; ilość instrukcji trzymana w r13
+  xor rbx, rbx
+  xor rcx, rcx
 
 
-	cmp r13, 0 ; sprawdzenie, czy liczba instrukcji jest równa 0
-	jne instruction_loop ; jeśli nie, przechodzimy do pętli
-	jmp end ; jeśli tak, wychodzimy z programu
+  cmp r13, 0 ; sprawdzenie, czy liczba instrukcji jest równa 0
+  jne instruction_loop ; jeśli nie, przechodzimy do pętli
+  jmp end ; jeśli tak, wychodzimy z programu
 
 instruction_loop:
-	xor arg2, arg2 ; zerowanie argumentów funkcji
-	xor rbx, rbx
+	xor rax, rax
 	xor r9, r9
 	mov r9b, PC
-	mov ax, word [rdi + 2 * r9] ; pobieramy instrukcję
-	inc byte PC
+	mov cx, [rdi + 2 * r9] ; wczytujemy instrukcję z tablicy
 
-	cmp ah, 0x40 ; sprawdzenie, czy to instrukcja dwuargumentowa
-	jb check_two_args_i ; jeśli tak, to sprawdzamy która dokładnie
+	cmp cx, 0x4000
+	jb .arg1_and_arg2
+	cmp cx, 0x7702
+	jb .arg1_and_imm8
 
-	mov arg2, byte al ; pobieramy drugi argument
-	mov dl, byte ah
-	mov arg1_code, byte dl
-	and arg1_code, 7 ; and arg1_code, 00000111
-
-	cmp arg1_code, 3
-	ja data_changing
-
-	mov rbx, registers
-	add bl, byte arg1_code ; rbx = registers + arg1_code
-	jmp pick_instruction
-
-data_changing:
-	mov rbx, rsi
-
-arg1_code_4:
-	cmp arg1_code, 4
-	jne arg1_code_5
-	add bl, byte X
-	jmp pick_instruction
-
-arg1_code_5:
-	cmp arg1_code, 5
-	jne arg1_code_6
-	add bl, byte Y
-	jmp pick_instruction
-
-arg1_code_6:
-	cmp arg1_code, 6
-	jne arg1_code_7
-	add bl, byte X
-	add bl, byte D
-	jmp pick_instruction
-
-arg1_code_7:
-	add bl, byte Y
-	add bl, byte D
-
-
-pick_instruction:
-;	shr ah, 8
-;	mov ah, al
-;	xor rax, rax
-	compare_jump_less ah, 0x48, movi_i
-	compare_jump_less ah, 0x58, ignore
-	compare_jump_less ah, 0x60, xori_i
-	compare_jump_less ah, 0x68, addi_i
-	compare_jump_less ah, 0x70, cmpi_i
-	compare_jump_less ah, 0x78, check_rcr
-	compare_jump_equal ah, 0x80, check_clc
-	compare_jump_equal ah, 0x81, check_stc
-	compare_jump_equal ah, 0xc0, jmp_i
-	compare_jump_equal ah, 0xc2, jnc_i
-	compare_jump_equal ah, 0xc3, jc_i
-	compare_jump_equal ah, 0xc4, jnz_i
-	compare_jump_equal ah, 0xc5, jz_i
-	compare_jump_equal ah, 0xff, check_brk
-	jmp ignore ; jeśli jest niepoprawna, ignorujemy
-
-check_two_args_i:
-	mov dl, byte ah
-	mov arg1_code, byte dl
-	mov arg2_code, dl
-	shr arg2_code, 3  ; arg2_code = {0, 1, 2, 3, 4, 5, 6, 7}
-	and arg1_code, 7 ; and arg1, 00000111 arg1_code = {0, 1, 2, 3, 4, 5, 6, 7}
-
-	cmp arg2_code, 3
-	ja two_arg2_set_data
-
-	mov rbx, registers
-	add bl, arg2_code
-	jmp two_set_arg1
-
-two_arg2_set_data:
-		mov rbx, rsi
-
-two_arg2_code_4:
-	cmp arg2_code, 4
-	jne two_arg2_code_5
-	add bl, byte X
-	jmp two_set_arg1
-
-two_arg2_code_5:
-	cmp arg2_code, 5
-	jne two_arg2_code_6
-	add bl, byte Y
-	jmp two_set_arg1
-
-two_arg2_code_6:
-	cmp arg2_code, 6
-	jne two_arg2_code_7
-	add bl, byte X
-	add bl, byte D
-	jmp two_set_arg1
-
-two_arg2_code_7:
-	add bl, byte Y
-	add bl, byte D
-
-two_set_arg1:
-	mov arg2, byte [rbx] ; arg2 = [data[Y + D]]
-	xor rbx, rbx
-
-	cmp arg1_code, 3
-	ja two_arg1_set_data
-
-	mov rbx, registers
-	add bl, byte arg1_code ; rbx = registers + arg1_code
-	jmp two_pick_instruction
-
-two_arg1_set_data:
-	mov rbx, rsi
-
-two_arg1_code_4:
-	cmp arg1_code, 4
-	jne two_arg1_code_5
-	add bl, byte X
-	jmp two_pick_instruction
-
-two_arg1_code_5:
-	cmp arg1_code, 5
-	jne two_arg1_code_6
-	add bl, byte Y
-	jmp two_pick_instruction
-
-two_arg1_code_6:
-	cmp arg1_code, 6
-	jne two_arg1_code_7
-	add bl, byte X
-	add bl, byte D
-	jmp two_pick_instruction
-
-two_arg1_code_7:
-	add bl, byte Y
-	add bl, byte D
-
-two_pick_instruction:
-	mov r9b, al
-	xor rax, rax
-	compare_jump_equal r9b, 0x0, mov_i
-	compare_jump_equal r9b, 0x2, or_i
-	compare_jump_equal r9b, 0x4, add_i
-	compare_jump_equal r9b, 0x5, sub_i
-	compare_jump_equal r9b, 0x6, adc_i
-	compare_jump_equal r9b, 0x7, sbb_i
-	compare_jump_equal r9b, 0x8, xchg_i
+.no_args_instruction:
+	compare_jump_equal word cx, word 0x8000, clc_i
+  compare_jump_equal word cx, word 0x8100, stc_i
+  compare_jump_equal byte ch, byte 0xc0, jmp_i
+  compare_jump_equal byte ch, byte 0xc2, jnc_i
+  compare_jump_equal byte ch, byte 0xc3, jc_i
+  compare_jump_equal byte ch, byte 0xc4, jnz_i
+  compare_jump_equal byte ch, byte 0xc5, jz_i
+  compare_jump_equal word cx, word 0xffff, end
+  jmp ignore
+.arg1_and_imm8:
+call set_arg1_and_imm8
+	compare_jump_less byte ch, 0x48, movi_i
+	compare_jump_less byte ch, 0x58, ignore
+	compare_jump_less byte ch, 0x60, xori_i
+	compare_jump_less byte ch, 0x68, addi_i
+	compare_jump_less byte ch, 0x70, cmpi_i
+	compare_jump_less byte ch, 0x78, check_rcr_i
 	jmp ignore
-
-check_rcr:
-	instruction_or_ignore al, 0x1, rcr_i
-check_clc:
-	instruction_or_ignore al, 0x0, clc_i
-check_stc:
-	instruction_or_ignore al, 0x0, stc_i
-check_brk:
-	instruction_or_ignore al, 0xff, end
+.arg1_and_arg2:
+call set_arg1_and_arg2
+	compare_jump_equal byte cl, 0x0, mov_i
+	compare_jump_equal byte cl, 0x2, or_i
+	compare_jump_equal byte cl, 0x4, add_i
+	compare_jump_equal byte cl, 0x5, sub_i
+	compare_jump_equal byte cl, 0x6, adc_i
+	compare_jump_equal byte cl, 0x7, sbb_i
+	compare_jump_equal byte cl, 0x8, xchg_i
+	jmp ignore
 ignore:
 instruction_done:
+	xor rbx, rbx
+	xor arg2, arg2
 	inc r14
-	cmp r14, r13 ;sprawdzamy, czy wykonaliśmy już steps instrukcji
-	jne instruction_loop ; jeśli nie, to parsujemy i wykonujemy kolejną
-	jmp end ; jeśli wszystkie, kończymy program
+	cmp r14, r13                   ;sprawdzamy, czy wykonaliśmy już steps instrukcji
+	jne instruction_loop           ; jeśli nie, to parsujemy i wykonujemy kolejną
+	jmp end                        ; jeśli wszystkie, kończymy program
 
-
-	; --- Instrukcje
-
+check_rcr_i:
+	compare_jump_equal cl, 0x1, rcr_i
+	jmp ignore
 
 mov_i:
-	mov arg1, arg2 ; przypisujemy do arg1 wartość arg2
-	jmp instruction_done ; zakończenie instrukcji
 
+	mov arg1, arg2
+	jmp instruction_done
 
 or_i:
-	xor rax, rax
 	or arg1, arg2
 	lahf
 	shr ah, 6
 	and ah, 1
 	mov Z, ah
-	jmp instruction_done ; zakończenie instrukcji
-
+	jmp instruction_done
 
 add_i:
-	xor rax, rax
 	add arg1, arg2
-	lahf
-	shr ah, 6
-	and ah, 1
-	mov Z, ah
-	jmp instruction_done ; zakończenie instrukcji
-
-sub_i:
-	xor rax, rax
-	sub arg1, arg2
-	lahf
+  lahf
   shr ah, 6
   and ah, 1
   mov Z, ah
-	jmp instruction_done ; zakończenie instrukcji
+	jmp instruction_done
+
+sub_i:
+	sub arg1, arg2
+  lahf
+  shr ah, 6
+  and ah, 1
+  mov Z, ah
+	jmp instruction_done
 
 adc_i:
-	xor rax, rax
-	mov ah, C
+	mov ah, byte C
 	sahf
 	adc arg1, arg2
 	lahf
-	mov bl, ah
+	mov cl, ah
 	shr ah, 6
 	and ah, 1
-	and bl, 1
-	and Z, ah
-	mov C, bl
+	and cl, 1
+	mov Z, ah
+	mov C, cl
 	jmp instruction_done
 
 sbb_i:
-	xor rax, rax
-	mov ah, C
+	mov ah, byte C
 	sahf
 	sbb arg1, arg2
 	lahf
-	mov bl, ah
+	mov cl, ah
 	shr ah, 6
 	and ah, 1
-	and bl, 1
-	and Z, ah
-	mov C, bl
+	and cl, 1
+	mov Z, ah
+	mov C, cl
 	jmp instruction_done
 
+	xchg_i:
+  xchg arg1, arg2 ;todo może zmienić
+  jmp instruction_done
 
 movi_i:
 	mov arg1, imm8
 	jmp instruction_done
 
 xori_i:
-	xor rax, rax
-	lahf
-	shr ah, 6
-	and ah, 1
-	mov Z, ah
-	jmp instruction_done ; zakończenie instrukcji
-
-
-addi_i:
-	xor rax, rax
-	add arg1, imm8
-	lahf
+	xor arg1, imm8
+  lahf
   shr ah, 6
   and ah, 1
   mov Z, ah
-	jmp instruction_done ; zakończenie instrukcji
+  jmp instruction_done
+
+addi_i:
+	add arg1, imm8
+  lahf
+  shr ah, 6
+  and ah, 1
+  mov Z, ah
+  jmp instruction_done
 
 cmpi_i:
-	xor rax, rax
 	cmp arg1, imm8
 	lahf
-	mov bl, ah
-	shr ah, 6
-	and ah, 1
-	and bl, 1
-	and Z, ah
-	mov C, bl
-	jmp instruction_done
+  mov cl, ah
+  shr ah, 6
+  and ah, 1
+  and cl, 1
+  mov Z, ah
+  mov C, cl
+  jmp instruction_done
 
 rcr_i:
-	xor rax, rax
 	mov ah, byte C
 	sahf
-	rcr byte arg1, byte 1
+	rcr byte arg1, 1
 	lahf
 	and ah, 1
 	mov C, ah
-	jmp instruction_done
+  jmp instruction_done
 
 clc_i:
 	mov C, byte 0
-	jmp instruction_done
+  jmp instruction_done
 
 stc_i:
 	mov C, byte 1
 	jmp instruction_done
 
-jmp_i:
-	add PC, imm8
-	jmp instruction_done
-
 jnc_i:
 	cmp C, byte 1
 	je instruction_done
-	add PC, imm8
-	jmp instruction_done
+	jmp make_jump
 
 jc_i:
-	cmp C, byte 0
-	jz instruction_done
-	add PC, imm8
-	jmp instruction_done
+	cmp C, byte 1
+	jne instruction_done
+	jmp make_jump
 
 jnz_i:
-	cmp Z, byte 0
-	jnz instruction_done
-	add PC, imm8
-	jmp instruction_done
+ 	cmp Z, byte 1
+ 	je instruction_done
+ 	jmp make_jump
 
 jz_i:
-	cmp Z, byte 0
-	jz instruction_done
+ 	cmp Z, byte 1
+ 	jne instruction_done
+ 	jmp make_jump
+
+jmp_i:
+make_jump:
 	add PC, imm8
 	jmp instruction_done
 
-xchg_i:
-	mov r9d, 1
-busy_wait:
-;  xor rdx, rdx        ; W eax jest wartość otwartej blokady.
-;  lock cmpxchg [rdx], r9d      ; Jeśli blokada otwarta, zamknij ją.
-;	jne busy_wait       ; Skocz, gdy blokada była zamknięta.
-	xchg arg1, arg2
-;  mov [rdx], eax      ; Otwórz blokadę.
-;	jmp instruction_done
-
+brk_i:
 end:
 	mov rax, [rel registers] ;wypełnienie rax wszystkimi elementami struktury
 	mov rcx, r12 ; przywrócenie argumentu funkcji
@@ -416,5 +278,4 @@ end:
 	pop r13
 	pop r12
 	pop rbx
-
 ret
