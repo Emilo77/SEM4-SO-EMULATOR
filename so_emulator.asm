@@ -4,14 +4,19 @@ global so_emul
 %define CORES 4
 %endif
 
-%macro compare_jump_less 3 ; arg1 = register, arg2 = value, arg2 = label
- cmp %1, %2
- jb %3
+%macro compare_jump_less 3 ; arg1 = register, arg2 = value, arg3 = label
+  cmp %1, %2
+  jb %3
 %endmacro
 
-%macro compare_jump_equal 3 ; arg1 = register, arg2 = value, arg2 = label
- cmp %1, %2
- je %3
+%macro compare_jump_equal 3 ; arg1 = register, arg2 = value, arg3 = label
+  cmp %1, %2
+  je %3
+%endmacro
+
+%macro instruction_or_ignore 3 ; arg1 = register, arg2 = value, arg3 = label
+  compare_jump_equal %1, %2, %3
+  jmp ignore
 %endmacro
 
 %define arg1_code r11b
@@ -29,8 +34,15 @@ global so_emul
 %define C [rel registers + 6]
 %define Z [rel registers + 7]
 
+section .data
+
+; Blokada otwarta ma wartość 0. Blokada zamknięta ma wartość 1.
+align 4
+spin_lock dd 0
+
 section .bss
 
+state resq CORES
 registers resb 8
 
 section .text
@@ -75,57 +87,42 @@ instruction_loop:
 	shr dl, 3
 	shl dl, 3
 	sub arg1_code, dl ; arg1_code = {0, 1, 2, 3, 4, 5, 6, 7}
-	mov rbx, registers
 
 	cmp arg1_code, 3
-	ja arg1_code_4
+	ja data_changing
 
+	mov rbx, registers
 	add bl, byte arg1_code ; rbx = registers + arg1_code
-	mov arg1, byte [rbx] ; arg1 = [registers + 0] lub [registers + 1] lub [registers + 2] lub [registers + 3]
-	jmp pick_instruction
+	jmp set_data_to_arg1
+
+data_changing:
+	mov rbx, rsi
 
 arg1_code_4:
 	cmp arg1_code, 4
 	jne arg1_code_5
-	add bl, 2
-	mov r10b, byte [rbx] ; r10b = X
-	mov rbx, rsi
-	add bl, r10b
-	mov arg1, byte [rbx] ; arg1 = [X]
-	jmp pick_instruction
+	add bl, byte X
+	jmp set_data_to_arg1
 
 arg1_code_5:
 	cmp arg1_code, 5
 	jne arg1_code_6
-	add bl, 3
-	mov r10b, byte [rbx] ; r10b = Y
-	mov rbx, rsi
-	add bl, r10b
-	mov arg1, byte [rbx] ; arg1 = [Y]
-	jmp pick_instruction
+	add bl, byte Y
+	jmp set_data_to_arg1
 
 arg1_code_6:
 	cmp arg1_code, 6
 	jne arg1_code_7
-	inc bl
-	mov r10b, byte [rbx] ; r10b = D
-	inc bl
-	mov r9b, byte [rbx] ; r9b = X
-	mov rbx, rsi ; [rbx] = data[0]
-	add bl, r10b ; [rbx] = data[D]
-	add bl, r9b ; [rbx] = data[D + X]
-	mov arg1, byte [rbx] ; arg1 = [data[D + X]]
-	jmp pick_instruction
+	add bl, byte X
+	add bl, byte D
+	jmp set_data_to_arg1
 
 arg1_code_7:
-	inc bl
-	mov r10b, byte [rbx] ; r10b = D
-	add bl, byte 2
-	mov r9b, byte [rbx] ; r9b = Y
-	mov rbx, rsi ; [rbx] = data[0]
-	add bl, r10b ; [rbx] = data[D]
-	add bl, r9b ; [rbx] = data[D + Y]
-	mov arg1, byte [rbx] ; arg1 = [data[D + Y]]
+	add bl, byte Y
+	add bl, byte D
+
+set_data_to_arg1:
+	mov arg1, byte [rbx] ;
 
 pick_instruction:
 	compare_jump_less ah, 0x48, movi_i
@@ -151,111 +148,79 @@ check_two_args_i:
 	mov arg2_code, dl ; arg2_code = {0, 1, 2, 3, 4, 5, 6, 7}
 	shl dl, 3
 	sub arg1_code, dl ; arg1_code = {0, 1, 2, 3, 4, 5, 6, 7}
-	mov rbx, registers
 
 	cmp arg2_code, 3
-	ja two_arg2_code_4
+	ja two_arg2_set_data
 
+	mov rbx, registers
 	add bl, arg2_code
-	mov arg2, byte [rbx]
 	jmp two_set_arg1
+
+two_arg2_set_data:
+		mov rbx, rsi
 
 two_arg2_code_4:
 	cmp arg2_code, 4
 	jne two_arg2_code_5
-	add bl, 2
-	mov r10b, byte [rbx] ; r10b = X
-	mov rbx, rsi
-	add bl, r10b
-	mov arg2, byte [rbx] ; arg2 = [X]
+	add bl, byte X
 	jmp two_set_arg1
 
 two_arg2_code_5:
 	cmp arg2_code, 5
 	jne two_arg2_code_6
-	add bl, 3
-	mov r10b, byte [rbx] ; r10b = Y
-	mov rbx, rsi
-	add bl, r10b
-	mov arg2, byte [rbx] ; arg2 = [Y]
+	add bl, byte Y
 	jmp two_set_arg1
 
 two_arg2_code_6:
 	cmp arg2_code, 6
 	jne two_arg2_code_7
-	inc bl
-	mov r10b, byte [rbx] ; r10b = D
-	inc bl
-	mov r9b, byte [rbx] ; r9b = X
-	mov rbx, rsi ; [rbx] = data[0]
-	add bl, r10b ; [rbx] = data[D]
-	add bl, r9b ; [rbx] = data[D + X]
-	mov arg2, byte [rbx] ; arg2 = [data[D + X]]
+	add bl, byte X
+	add bl, byte D
 	jmp two_set_arg1
 
 two_arg2_code_7:
-	inc bl
-	mov r10b, byte [rbx] ; r10b = D
-	add bl, byte 2
-	mov r9b, byte [rbx] ; r9b = Y
-	mov rbx, rsi ; [rbx] = data[0]
-	add bl, r10b ; [rbx] = data[D]
-	add bl, r9b ; [rbx] = data[D + Y]
-	mov arg2, byte [rbx] ; arg2 = [data[D + Y]]
+	add bl, byte Y
+	add bl, byte D
 
 two_set_arg1:
+	mov arg2, byte [rbx] ; arg2 = [data[Y + D]]
 	xor rbx, rbx
-	mov rbx, registers
 
 	cmp arg1_code, 3
-	ja two_arg1_code_4
+	ja two_arg1_set_data
 
+	mov rbx, registers
 	add bl, byte arg1_code ; rbx = registers + arg1_code
-	mov arg1, byte [rbx] ; arg1 = [registers + 0] lub [registers + 1] lub [registers + 2] lub [registers + 3]
-	jmp two_pick_instruction
+	jmp two_move_data_to_arg1
+
+two_arg1_set_data:
+	mov rbx, rsi
 
 two_arg1_code_4:
 	cmp arg1_code, 4
 	jne two_arg1_code_5
-	add bl, 2
-	mov r10b, byte [rbx] ; r10b = X
-	mov rbx, rsi
-	add bl, r10b
-	mov arg1, byte [rbx] ; arg1 = [X]
-	jmp two_pick_instruction
+	add bl, byte X
+	jmp two_move_data_to_arg1
 
 two_arg1_code_5:
 	cmp arg1_code, 5
 	jne two_arg1_code_6
-	add bl, 3
-	mov r10b, byte [rbx] ; r10b = Y
-	mov rbx, rsi
-	add bl, r10b
-	mov arg1, byte [rbx] ; arg1 = [Y]
-	jmp two_pick_instruction
+	add bl, byte Y
+	jmp two_move_data_to_arg1
 
 two_arg1_code_6:
 	cmp arg1_code, 6
 	jne two_arg1_code_7
-	inc bl
-	mov r10b, byte [rbx] ; r10b = D
-	inc bl
-	mov r9b, byte [rbx] ; r9b = X
-	mov rbx, rsi ; [rbx] = data[0]
-	add bl, r10b ; [rbx] = data[D]
-	add bl, r9b ; [rbx] = data[D + X]
-	mov arg1, byte [rbx] ; arg1 = [data[D + X]]
-	jmp two_pick_instruction
+	add bl, byte X
+	add bl, byte D
+	jmp two_move_data_to_arg1
 
 two_arg1_code_7:
-	inc bl
-	mov r10b, byte [rbx] ; r10b = D
-	add bl, byte 2
-	mov r9b, byte [rbx] ; r9b = Y
-	mov rbx, rsi ; [rbx] = data[0]
-	add bl, r10b ; [rbx] = data[D]
-	add bl, r9b ; [rbx] = data[D + Y]
-	mov arg1, byte [rbx] ; arg1 = [data[D + Y]]
+	add bl, byte Y
+	add bl, byte D
+
+two_move_data_to_arg1:
+	mov arg1, byte [rbx]
 
 two_pick_instruction:
 	compare_jump_equal al, 0x0, mov_i
@@ -268,22 +233,13 @@ two_pick_instruction:
 	jmp ignore
 
 check_rcr:
-	compare_jump_equal al, 0x1, rcr_i
-	jmp ignore
-
+	instruction_or_ignore al, 0x1, rcr_i
 check_clc:
-	compare_jump_equal al, 0x0, clc_i
-	jmp ignore
-
+	instruction_or_ignore al, 0x0, clc_i
 check_stc:
-	compare_jump_equal al, 0x0, stc_i
-	jmp ignore
-
+	instruction_or_ignore al, 0x0, stc_i
 check_brk:
-	compare_jump_equal al, 0xff, end
-	jmp ignore
-
-
+	instruction_or_ignore al, 0xff, end
 ignore:
 instruction_done:
 	mov [rbx], arg1
@@ -422,6 +378,14 @@ jz_i:
 	jmp instruction_done
 
 xchg_i:
+	mov r9d, 1
+busy_wait:
+;  xor rdx, rdx        ; W eax jest wartość otwartej blokady.
+;  lock cmpxchg [rdx], r9d      ; Jeśli blokada otwarta, zamknij ją.
+;	jne busy_wait       ; Skocz, gdy blokada była zamknięta.
+	xchg arg1, arg2
+;  mov [rdx], eax      ; Otwórz blokadę.
+;	jmp instruction_done
 
 end:
 	mov rax, [rel registers] ;wypełnienie rax wszystkimi elementami struktury
