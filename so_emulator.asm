@@ -72,6 +72,7 @@ so_emul:
 	xor rbx, rbx
 	xor rcx, rcx
 
+
 	cmp r13, 0 ; sprawdzenie, czy liczba instrukcji jest równa 0
 	jne instruction_loop ; jeśli nie, przechodzimy do pętli
 	jmp end ; jeśli tak, wychodzimy z programu
@@ -81,8 +82,8 @@ instruction_loop:
 	xor rbx, rbx
 	xor r9, r9
 	mov r9b, PC
-	inc byte PC
 	mov ax, word [rdi + 2 * r9] ; pobieramy instrukcję
+	inc byte PC
 
 	cmp ah, 0x40 ; sprawdzenie, czy to instrukcja dwuargumentowa
 	jb check_two_args_i ; jeśli tak, to sprawdzamy która dokładnie
@@ -91,9 +92,6 @@ instruction_loop:
 	mov dl, byte ah
 	mov arg1_code, byte dl
 	and arg1_code, 7 ; and arg1_code, 00000111
-;	shr dl, 3
-;	shl dl, 3
-;	sub arg1_code, dl ; arg1_code = {0, 1, 2, 3, 4, 5, 6, 7}
 
 	cmp arg1_code, 3
 	ja data_changing
@@ -128,7 +126,11 @@ arg1_code_7:
 	add bl, byte Y
 	add bl, byte D
 
+
 pick_instruction:
+;	shr ah, 8
+;	mov ah, al
+;	xor rax, rax
 	compare_jump_less ah, 0x48, movi_i
 	compare_jump_less ah, 0x58, ignore
 	compare_jump_less ah, 0x60, xori_i
@@ -223,13 +225,15 @@ two_arg1_code_7:
 	add bl, byte D
 
 two_pick_instruction:
-	compare_jump_equal al, 0x0, mov_i
-	compare_jump_equal al, 0x2, or_i
-	compare_jump_equal al, 0x4, add_i
-	compare_jump_equal al, 0x5, sub_i
-	compare_jump_equal al, 0x6, adc_i
-	compare_jump_equal al, 0x7, sbb_i
-	compare_jump_equal al, 0x8, xchg_i
+	mov r9b, al
+	xor rax, rax
+	compare_jump_equal r9b, 0x0, mov_i
+	compare_jump_equal r9b, 0x2, or_i
+	compare_jump_equal r9b, 0x4, add_i
+	compare_jump_equal r9b, 0x5, sub_i
+	compare_jump_equal r9b, 0x6, adc_i
+	compare_jump_equal r9b, 0x7, sbb_i
+	compare_jump_equal r9b, 0x8, xchg_i
 	jmp ignore
 
 check_rcr:
@@ -242,102 +246,119 @@ check_brk:
 	instruction_or_ignore al, 0xff, end
 ignore:
 instruction_done:
-	inc rcx
-	cmp rcx, r13 ;sprawdzamy, czy wykonaliśmy już steps instrukcji
+	inc r14
+	cmp r14, r13 ;sprawdzamy, czy wykonaliśmy już steps instrukcji
 	jne instruction_loop ; jeśli nie, to parsujemy i wykonujemy kolejną
 	jmp end ; jeśli wszystkie, kończymy program
+
+
+	; --- Instrukcje
 
 
 mov_i:
 	mov arg1, arg2 ; przypisujemy do arg1 wartość arg2
 	jmp instruction_done ; zakończenie instrukcji
 
+
 or_i:
-	mov Z, byte 0 ; zerujemy Z
+	xor rax, rax
 	or arg1, arg2
-	jnz instruction_done ; jeśli flaga Z nieustawiona, kończymy instrukcję
-	mov Z, byte 1 ; ustawiamy flagę Z
+	lahf
+	shr ah, 6
+	and ah, 1
+	mov Z, ah
 	jmp instruction_done ; zakończenie instrukcji
 
 
 add_i:
-	mov Z, byte 0 ; zerujemy Z
+	xor rax, rax
 	add arg1, arg2
-	jnz instruction_done ; jeśli flaga Z nieustawiona, kończymy instrukcję
-	mov Z, byte 1 ; ustawiamy flagę Z
+	lahf
+	shr ah, 6
+	and ah, 1
+	mov Z, ah
 	jmp instruction_done ; zakończenie instrukcji
 
 sub_i:
-	mov Z, byte 0 ; zerujemy Z
+	xor rax, rax
 	sub arg1, arg2
-	jnz instruction_done ; jeśli flaga Z nieustawiona, kończymy instrukcję
-	mov Z, byte 1 ; ustawiamy flagę Z
+	lahf
+  shr ah, 6
+  and ah, 1
+  mov Z, ah
 	jmp instruction_done ; zakończenie instrukcji
 
 adc_i:
-	mov Z, byte 0
-	mov C, byte 0
+	xor rax, rax
+	mov ah, C
+	sahf
 	adc arg1, arg2
-	jnz .adc_check_C_flag
-	mov Z, byte 1
-.adc_check_C_flag:
-	jnc instruction_done
-	mov C, byte 1
+	lahf
+	mov bl, ah
+	shr ah, 6
+	and ah, 1
+	and bl, 1
+	and Z, ah
+	mov C, bl
 	jmp instruction_done
 
 sbb_i:
-	mov Z, byte 0
-	mov C, byte 0
+	xor rax, rax
+	mov ah, C
+	sahf
 	sbb arg1, arg2
-	jnz .sbb_check_C_flag
-	mov Z, byte 1
-.sbb_check_C_flag:
-	jnc instruction_done
-	mov C, byte 1
+	lahf
+	mov bl, ah
+	shr ah, 6
+	and ah, 1
+	and bl, 1
+	and Z, ah
+	mov C, bl
 	jmp instruction_done
+
 
 movi_i:
 	mov arg1, imm8
 	jmp instruction_done
 
 xori_i:
-	mov Z, byte 0 ; zerujemy Z
-	xor arg1, imm8
-	jnz instruction_done ; jeśli flaga Z nieustawiona, kończymy instrukcję
-	mov Z, byte 1 ; ustawiamy flagę Z
+	xor rax, rax
+	lahf
+	shr ah, 6
+	and ah, 1
+	mov Z, ah
 	jmp instruction_done ; zakończenie instrukcji
 
 
 addi_i:
-	mov Z, byte 0 ; zerujemy Z
+	xor rax, rax
 	add arg1, imm8
-	jnz instruction_done ; jeśli flaga Z nieustawiona, kończymy instrukcję
-	mov Z, byte 1 ; ustawiamy flagę Z
+	lahf
+  shr ah, 6
+  and ah, 1
+  mov Z, ah
 	jmp instruction_done ; zakończenie instrukcji
 
 cmpi_i:
-	mov Z, byte 0
-	mov C, byte 0
+	xor rax, rax
 	cmp arg1, imm8
-	jnz .cmpi_check_C_flag
-	mov Z, byte 1
-.cmpi_check_C_flag:
-	jnc instruction_done
-	mov C, byte 1
+	lahf
+	mov bl, ah
+	shr ah, 6
+	and ah, 1
+	and bl, 1
+	and Z, ah
+	mov C, bl
 	jmp instruction_done
 
 rcr_i:
-	mov r9b, arg1 ; r9b będzie następnym C
-	and r9b, 01
-	cmp C, byte 1
-	jnz .rcr_i_dont_set_CF
-	stc
-	jmp .rcr_i_shift
-.rcr_i_dont_set_CF:
-	clc
-.rcr_i_shift:
+	xor rax, rax
+	mov ah, byte C
+	sahf
 	rcr byte arg1, byte 1
-	mov C, byte r9b
+	lahf
+	and ah, 1
+	mov C, ah
 	jmp instruction_done
 
 clc_i:
@@ -353,8 +374,8 @@ jmp_i:
 	jmp instruction_done
 
 jnc_i:
-	cmp C, byte 0
-	jnz instruction_done
+	cmp C, byte 1
+	je instruction_done
 	add PC, imm8
 	jmp instruction_done
 
