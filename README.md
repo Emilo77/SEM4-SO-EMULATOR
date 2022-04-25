@@ -362,7 +362,7 @@ Jeśli wartość w rejestrze `D` jest niezerowa, to zmniejsza ją o jeden i wyko
 
 
 <p align="center">
-  <img src="https://media2.giphy.com/media/ygFngY7atOX8ytqCzj/giphy.gif?cid=ecf05e47vx48i21j6lo5lo771xu2sde81uy8c70wd6flfihn&rid=giphy.gif&ct=g" width=45%">
+  <img src="https://media1.giphy.com/media/j98SQB5Y7WqnC/giphy.gif?cid=ecf05e47e02juix08c5onqka2hv1w0dkgyg43e5g6rh3xkmm&rid=giphy.gif&ct=g" width=40%">
 </p>
 
 
