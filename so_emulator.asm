@@ -20,19 +20,21 @@ global so_emul
   je %3                           ; jeżeli arg1 = arg2, , wykonujemy skok
 %endmacro
 
+%define CORES_NUMBER r12
+%define REGISTERS_POINTER r10
 %define arg1 [rbx]                ; argument pierwszy funkcji SO emulatora jako pointer
 %define arg2 r15b                 ; argument drugi funkcji SO emulatora jako wartość
 %define arg2_p r15                ; argument drugi funkcji SO emulatora jako pointer
 %define imm8 r15b                 ; argument drugi funkcji SO emulatora jako wartość
 
-%define A [rel registers]
-%define D [rel registers + 1]
-%define X [rel registers + 2]
-%define Y [rel registers + 3]
-%define PC [rel registers + 4]
-%define UNUSED [rel registers + 5]
-%define C [rel registers + 6]
-%define Z [rel registers + 7]
+%define A [REGISTERS_POINTER + CORES_NUMBER * 8]
+%define D [REGISTERS_POINTER + CORES_NUMBER * 8 + 1]
+%define X [REGISTERS_POINTER + CORES_NUMBER * 8 + 2]
+%define Y [REGISTERS_POINTER + CORES_NUMBER * 8 + 3]
+%define PC [REGISTERS_POINTER + CORES_NUMBER * 8 + 4]
+%define UNUSED [REGISTERS_POINTER + CORES_NUMBER * 8 + 5]
+%define C [REGISTERS_POINTER + CORES_NUMBER * 8 + 6]
+%define Z [REGISTERS_POINTER + CORES_NUMBER * 8 + 7]
 
 section .bss
 
@@ -43,7 +45,7 @@ section .text
 
 set_argument:                             ; w al znajduje się kod zmiennej
   xor rbx, rbx                            ; zerowanie rbx, w nim będzie wskaźnik na zmienną
-  xor r8, r8                              ; zerowanie pomocniczej zmiennej
+  xor r9, r9                              ; zerowanie pomocniczej zmiennej
   compare_jump_less al, 4, .arg_0_1_2_3   ; jeżeli kod < 4, przypisanie A, D, X, lub Y
   compare_jump_equal al, 4, .arg_4_6      ; jeżeli kod = 4, przypisanie [X]
   compare_jump_equal al, 5, .arg_5_7      ; jeżeli kod = 5, przypisanie [Y]
@@ -51,16 +53,19 @@ set_argument:                             ; w al znajduje się kod zmiennej
   compare_jump_equal al, 6, .arg_4_6      ; jeżeli kod = 6, przypisanie [D + X]
   jmp .arg_5_7                            ; jeżeli kod = 7, przypisanie [D + Y]
 .arg_0_1_2_3:
-  lea rbx, [rel registers]        ; przypisanie do rbx adresu do tablicy  rejestrów SO
-  lea rbx, [rbx + rax]            ; przypisanie do rbx adresu na rejestry A, D, X, lub Y
+  lea rbx, [rel registers]                 ; przypisanie do rbx adresu do tablicy  rejestrów SO
+  mov r9, CORES_NUMBER                    ; przypisanie do r9 numer rdzenia
+	shl r9, 3                               ; pomnożenie razy 8
+	add rbx, r9
+  lea rbx, [rbx + rax]                    ; przypisanie do rbx adresu na rejestry A, D, X, lub Y
   ret                             ; zwrócenie wyniku w rbx
 .arg_4_6:
-  lea r8, X                       ; przypisanie do r8 adresu na rejestr SO = X
+  lea r9, X                       ; przypisanie do r9 adresu na rejestr SO = X
   jmp .get_data_pointer
 .arg_5_7:
-  lea r8, Y                       ; przypisanie do r8 adresu na rejestr SO = Y
+  lea r9, Y                       ; przypisanie do r9 adresu na rejestr SO = Y
 .get_data_pointer:
-  add bl, byte [r8]               ; dodanie do bl wartości rejestru SO, X, Y, X + D lub Y + D
+  add bl, byte [r9]               ; dodanie do bl wartości rejestru SO, X, Y, X + D lub Y + D
   lea rbx, [rsi + rbx]            ; przypisanie do rbx adresu do [X], [Y], [X + D] lub [Y + D]
   ret                             ; zwrócenie wyniku w rbx
 
@@ -98,6 +103,7 @@ set_arg1_and_arg2_reference:      ; analogiczna sytuacja, jak wyżej
   ret                             ; arg1 oraz arg2 są ustawione
 
 so_emul:
+	lea r10, [rel registers]
   push rbx                        ; wstawienie elementów na stos, aby zachować abi
   push r12
   push r13
@@ -105,13 +111,12 @@ so_emul:
   push r15
 
   xor rbx, rbx                    ; wyzerowanie rejestrów
-  xor r10, r10
   xor r12, r12
   xor r13, r13
   xor r14, r14
   xor r15, r15
 
-  mov r12, rcx                    ; ilość rdzeni trzymana w r13
+  mov CORES_NUMBER, rcx           ; ilość rdzeni trzymana w r13
   mov r13, rdx                    ; ilość instrukcji trzymana w r13
   xor rbx, rbx
   xor rcx, rcx
@@ -275,18 +280,21 @@ set_Z_flag:           ; ustawienie flagi Z
   lahf                ; wczytanie do rejestru ah flagi assemblerowe
   shr ah, 6           ; przesunięcie ah o 6 bitów, w ten sposób w na ostatnim bicie jest flaga ZF
   and ah, 1           ; operacja modulo 2, aby ah miało wartość 0 lub 1
-  mov Z, ah           ; aktualizacja flagi Z
+  mov al, ah
+  mov Z, al           ; aktualizacja flagi Z
   ret
 
 get_C_flag:
-  mov ah, byte C      ; wczytanie do rejestru ah wartość flagi C
+	mov al, byte C
+  mov ah, al          ; wczytanie do rejestru ah wartość flagi C
   sahf                ; aktualizacja flag assemblerowych
   ret
 
 set_C_flag:           ; ustawienie flagi C
   lahf                ; wczytanie do rejestru ah flagi assemblerowe, na ostatnim bicie jest flaga CF
   and ah, 1           ; operacja modulo 2, aby ah miało wartość 0 lub 1
-  mov C, ah           ; aktualizacja flagi C
+  mov al, ah
+  mov C, al           ; aktualizacja flagi C
   ret
 
 set_both_flags:       ; ustawienie obu flag C i Z
@@ -298,7 +306,7 @@ set_both_flags:       ; ustawienie obu flag C i Z
 
 brk_i:
 end:                            ;zakończenie działania funkcji
-  mov rax, [rel registers]      ;wypełnienie rax wszystkimi elementami struktury
+  mov rax, A                    ;wypełnienie rax wszystkimi elementami struktury
   mov rcx, r12                  ; przywrócenie argumentu funkcji
   mov rdx, r13                  ; przywrócenie argumentu funkcji
   pop r15                       ; zwrócenie rejestrów, aby zachować ABI
