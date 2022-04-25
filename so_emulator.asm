@@ -49,14 +49,59 @@ registers resb 8
 
 section .text
 
+set_argument:
+	cmp al, 3
+	jbe .arg_0_3
+	mov rbx, rsi
+	cmp al, 4
+	je .arg_4
+	cmp al, 5
+	je .arg_5
+	cmp al, 6
+	je .arg_6
+	jmp .arg_7
+
+.arg_0_3:
+	mov rbx, registers
+	add bl, al
+ret
+
+.arg_4:
+	add bl, byte X
+ret
+
+.arg_5:
+	add bl, byte Y
+ret
+
+.arg_6:
+	add bl, byte X
+	add bl, byte D
+ret
+
+.arg_7:
+	add bl, byte Y
+	add bl, byte D
+ret
+
 set_arg1_and_imm8:
-mov imm8, 0
-mov rbx, [rsi] ; todo
+	xor rax, rax
+	mov arg2, byte cl
+	mov al, byte ch
+	and al, 7 ; operacja % 8
+	call set_argument
 ret
 
 set_arg1_and_arg2:
-mov imm8, 0
-mov rbx, [rsi] ; todo
+xor rax, rax
+mov al, byte ch
+shr al, 3 ; operacja / 8
+call set_argument
+mov arg2, byte [rbx]
+xor rax, rax
+mov al, byte ch
+and al, 7 ; operacja % 8
+call set_argument
 ret
 
 so_emul:
@@ -78,34 +123,32 @@ so_emul:
   xor rbx, rbx
   xor rcx, rcx
 
-
   cmp r13, 0 ; sprawdzenie, czy liczba instrukcji jest równa 0
   jne instruction_loop ; jeśli nie, przechodzimy do pętli
   jmp end ; jeśli tak, wychodzimy z programu
 
 instruction_loop:
 	xor rax, rax
+  xor rbx, rbx
+
 	xor r9, r9
 	mov r9b, PC
 	mov cx, [rdi + 2 * r9] ; wczytujemy instrukcję z tablicy
+	inc byte PC
 
 	cmp cx, 0x4000
 	jb .arg1_and_arg2
-	cmp cx, 0x7702
-	jb .arg1_and_imm8
 
-.no_args_instruction:
+.arg1_and_imm8:
+call set_arg1_and_imm8
 	compare_jump_equal word cx, word 0x8000, clc_i
   compare_jump_equal word cx, word 0x8100, stc_i
+  compare_jump_equal word cx, word 0xffff, end
   compare_jump_equal byte ch, byte 0xc0, jmp_i
   compare_jump_equal byte ch, byte 0xc2, jnc_i
   compare_jump_equal byte ch, byte 0xc3, jc_i
   compare_jump_equal byte ch, byte 0xc4, jnz_i
   compare_jump_equal byte ch, byte 0xc5, jz_i
-  compare_jump_equal word cx, word 0xffff, end
-  jmp ignore
-.arg1_and_imm8:
-call set_arg1_and_imm8
 	compare_jump_less byte ch, 0x48, movi_i
 	compare_jump_less byte ch, 0x58, ignore
 	compare_jump_less byte ch, 0x60, xori_i
@@ -137,12 +180,11 @@ check_rcr_i:
 	jmp ignore
 
 mov_i:
-
-	mov arg1, arg2
+	mov byte arg1, byte arg2
 	jmp instruction_done
 
 or_i:
-	or arg1, arg2
+	or byte arg1, byte arg2
 	lahf
 	shr ah, 6
 	and ah, 1
@@ -150,7 +192,7 @@ or_i:
 	jmp instruction_done
 
 add_i:
-	add arg1, arg2
+	add byte arg1, byte arg2
   lahf
   shr ah, 6
   and ah, 1
@@ -158,7 +200,7 @@ add_i:
 	jmp instruction_done
 
 sub_i:
-	sub arg1, arg2
+	sub byte arg1, byte arg2
   lahf
   shr ah, 6
   and ah, 1
@@ -166,7 +208,7 @@ sub_i:
 	jmp instruction_done
 
 adc_i:
-	mov ah, byte C
+	mov byte ah, byte C
 	sahf
 	adc arg1, arg2
 	lahf
@@ -174,14 +216,14 @@ adc_i:
 	shr ah, 6
 	and ah, 1
 	and cl, 1
-	mov Z, ah
-	mov C, cl
+	mov Z, byte ah
+	mov C, byte cl
 	jmp instruction_done
 
 sbb_i:
 	mov ah, byte C
 	sahf
-	sbb arg1, arg2
+	sbb byte arg1, byte arg2
 	lahf
 	mov cl, ah
 	shr ah, 6
@@ -192,11 +234,11 @@ sbb_i:
 	jmp instruction_done
 
 	xchg_i:
-  xchg arg1, arg2 ;todo może zmienić
+  xchg byte arg1, byte arg2 ;todo może zmienić
   jmp instruction_done
 
 movi_i:
-	mov arg1, imm8
+	mov byte arg1, byte imm8
 	jmp instruction_done
 
 xori_i:
@@ -208,7 +250,7 @@ xori_i:
   jmp instruction_done
 
 addi_i:
-	add arg1, imm8
+	add byte arg1, byte imm8
   lahf
   shr ah, 6
   and ah, 1
