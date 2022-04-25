@@ -20,8 +20,8 @@ global so_emul
   je %3                           ; jeżeli arg1 = arg2, , wykonujemy skok
 %endmacro
 
-%define CORES_NUMBER r12
-%define REGISTERS_POINTER r10
+%define CORES_NUMBER r12          ; rejestr zawierający liczbę wątków
+%define REGISTERS_POINTER r10     ; wskaźnik na rejestry
 %define arg1 [rbx]                ; argument pierwszy funkcji SO emulatora jako pointer
 %define arg2 r15b                 ; argument drugi funkcji SO emulatora jako wartość
 %define arg2_p r15                ; argument drugi funkcji SO emulatora jako pointer
@@ -139,7 +139,7 @@ instruction_loop:                 ; główna pętla funkcji
   jb .arg1_and_arg2               ; jeżeli tak, przeskakujemy
 
 .arg1_and_imm8:
-call set_arg1_and_imm8                               ; ustawiamy odpowiednio parametry arg1 i arg2
+  call set_arg1_and_imm8                               ; ustawiamy odpowiednio parametry arg1 i arg2
   compare_jump_equal word cx, word 0x8000, clc_i     ; sprawdzenie i skok do instrukcji CLC
   compare_jump_equal word cx, word 0x8100, stc_i     ; sprawdzenie i skok do instrukcji STC
   compare_jump_equal word cx, word 0xffff, end       ; sprawdzenie i skok do wyjścia z funkcji
@@ -156,14 +156,14 @@ call set_arg1_and_imm8                               ; ustawiamy odpowiednio par
   compare_jump_less byte ch, 0x78, check_rcr_i       ; sprawdzenie i skok do sprawdzenia RCR
   jmp ignore                                         ; zignorowanie instrukcji
 .arg1_and_arg2:
-call set_arg1_and_arg2
+  call set_arg1_and_arg2
   compare_jump_equal byte cl, 0x0, mov_i             ; sprawdzenie i skok do instrukcji MOV
   compare_jump_equal byte cl, 0x2, or_i              ; sprawdzenie i skok do instrukcji OR
   compare_jump_equal byte cl, 0x4, add_i             ; sprawdzenie i skok do instrukcji ADD
   compare_jump_equal byte cl, 0x5, sub_i             ; sprawdzenie i skok do instrukcji SUB
   compare_jump_equal byte cl, 0x6, adc_i             ; sprawdzenie i skok do instrukcji ADC
   compare_jump_equal byte cl, 0x7, sbb_i             ; sprawdzenie i skok do instrukcji SBB
-call set_arg1_and_arg2_reference
+  call set_arg1_and_arg2_reference
   compare_jump_equal byte cl, 0x8, xchg_i            ; sprawdzenie i skok do instrukcji XCHG
   jmp ignore                                         ; zignorowanie instrukcji
 ignore:
@@ -305,11 +305,11 @@ set_both_flags:       ; ustawienie obu flag C i Z
   ret
 
 brk_i:
-end:                            ;zakończenie działania funkcji
-  mov rax, A                    ;wypełnienie rax wszystkimi elementami struktury
-  mov rcx, r12                  ; przywrócenie argumentu funkcji
-  mov rdx, r13                  ; przywrócenie argumentu funkcji
-  pop r15                       ; zwrócenie rejestrów, aby zachować ABI
+end:                  ; zakończenie działania funkcji
+  mov rax, A          ; wypełnienie rax wszystkimi elementami struktury
+  mov rcx, r12        ; przywrócenie argumentu funkcji
+  mov rdx, r13        ; przywrócenie argumentu funkcji
+  pop r15             ; zwrócenie rejestrów, aby zachować ABI
   pop r14
   pop r13
   pop r12
