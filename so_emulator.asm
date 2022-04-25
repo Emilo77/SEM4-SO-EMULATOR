@@ -55,8 +55,8 @@ set_argument:                             ; w al znajduje się kod zmiennej
 .arg_0_1_2_3:
   lea rbx, [rel registers]                 ; przypisanie do rbx adresu do tablicy  rejestrów SO
   mov r9, CORES_NUMBER                    ; przypisanie do r9 numer rdzenia
-	shl r9, 3                               ; pomnożenie razy 8
-	add rbx, r9
+  shl r9, 3                               ; pomnożenie razy 8
+  add rbx, r9
   lea rbx, [rbx + rax]                    ; przypisanie do rbx adresu na rejestry A, D, X, lub Y
   ret                             ; zwrócenie wyniku w rbx
 .arg_4_6:
@@ -103,7 +103,7 @@ set_arg1_and_arg2_reference:      ; analogiczna sytuacja, jak wyżej
   ret                             ; arg1 oraz arg2 są ustawione
 
 so_emul:
-	lea r10, [rel registers]
+  lea r10, [rel registers]
   push rbx                        ; wstawienie elementów na stos, aby zachować abi
   push r12
   push r13
@@ -285,7 +285,7 @@ set_Z_flag:           ; ustawienie flagi Z
   ret
 
 get_C_flag:
-	mov al, byte C
+  mov al, byte C
   mov ah, al          ; wczytanie do rejestru ah wartość flagi C
   sahf                ; aktualizacja flag assemblerowych
   ret
