@@ -72,7 +72,7 @@ OR arg1, arg2
 
 kod `0x0002 + 0x100 * arg1 + 0x0800 * arg2`
 
-Wykonuje bitową alternatywę `arg1` i `arg2`. Umieszcza wynik w arg1. Ustawia znacznik Z zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
+Wykonuje bitową alternatywę `arg1` i `arg2`. Umieszcza wynik w arg1. Ustawia znacznik `Z` zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
 
 ---
 
@@ -82,7 +82,7 @@ ADD arg1, arg2
 
 kod `0x0004 + 0x100 * arg1 + 0x0800 * arg2`
 
-Dodaje wartość `arg2` do `arg1`. Ustawia znacznik Z zgodnie z wynikiem operacji. Nie modyfikuje znacznika C.
+Dodaje wartość `arg2` do `arg1`. Ustawia znacznik Z zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
 
 ---
 
@@ -92,7 +92,7 @@ SUB arg1, arg2
 
 kod `0x0005 + 0x100 * arg1 + 0x0800 * arg2`
 
-Odejmuje wartość `arg2` od `arg1`. Ustawia znacznik Z zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
+Odejmuje wartość `arg2` od `arg1`. Ustawia znacznik `Z` zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
 
 ---
 
@@ -102,7 +102,7 @@ ADC arg1, arg2
 
 kod `0x0006 + 0x100 * arg1 + 0x0800 * arg2`
 
-Dodaje wartości `arg2` oraz `C` do `arg1`. Ustawia znaczniki `C` i Z zgodnie z wynikiem operacji.
+Dodaje wartości `arg2` oraz `C` do `arg1`. Ustawia znaczniki `C` i `Z` zgodnie z wynikiem operacji.
 
 ---
 
@@ -131,7 +131,7 @@ XORI arg1, imm8
 
 kod `0x5800 + 0x100 * arg1 + imm8`
 
-Wykonuje bitową rozłączną alternatywę `arg1` i `imm8`. Umieszcza wynik w `arg1`. Ustawia znacznik Z zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
+Wykonuje bitową rozłączną alternatywę `arg1` i `imm8`. Umieszcza wynik w `arg1`. Ustawia znacznik `Z` zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
 
 ---
 
@@ -141,7 +141,7 @@ ADDI arg1, imm8
 
 kod `0x6000 + 0x100 * arg1 + imm8`
 
-Dodaje wartość `imm8` do `arg1`. Ustawia znacznik Z zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
+Dodaje wartość `imm8` do `arg1`. Ustawia znacznik `Z` zgodnie z wynikiem operacji. Nie modyfikuje znacznika `C`.
 
 ---
 
