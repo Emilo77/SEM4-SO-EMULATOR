@@ -190,15 +190,13 @@ sub_i:
 	jmp instruction_done
 
 adc_i:
-	mov byte ah, byte C
-	sahf
+	call get_C_flag
 	adc arg1, arg2
 	call set_both_flags
 	jmp instruction_done
 
 sbb_i:
-	mov ah, byte C
-	sahf
+	call get_C_flag
 	sbb byte arg1, byte arg2
 	call set_both_flags
 	jmp instruction_done
@@ -221,7 +219,6 @@ xori_i:
 
 addi_i:
 	add byte arg1, byte imm8
-  lahf
   call set_Z_flag
   jmp instruction_done
 
@@ -231,8 +228,7 @@ cmpi_i:
   jmp instruction_done
 
 rcr_i:
-	mov ah, byte C
-	sahf
+	call get_C_flag
 	rcr byte arg1, 1
 	call set_C_flag
   jmp instruction_done
@@ -276,6 +272,11 @@ set_Z_flag:
 	and ah, 1
 	mov Z, ah
 	ret
+
+get_C_flag:
+	mov ah, byte C
+  sahf
+  ret
 
 set_C_flag:
 	lahf
