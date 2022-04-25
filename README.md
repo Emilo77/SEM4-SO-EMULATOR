@@ -359,3 +359,10 @@ DJNZ imm8
 kod `0xC100 + imm8`
 
 Jeśli wartość w rejestrze `D` jest niezerowa, to zmniejsza ją o jeden i wykonuje skok względny. Jeśli wartość w rejestrze `D` jest równa zeru, nie robi nic. Nie modyfikuje znaczników.
+
+
+<p align="center">
+  <img src="https://media2.giphy.com/media/ygFngY7atOX8ytqCzj/giphy.gif?cid=ecf05e47vx48i21j6lo5lo771xu2sde81uy8c70wd6flfihn&rid=giphy.gif&ct=g" width=45%">
+</p>
+
+
