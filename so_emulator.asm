@@ -14,19 +14,6 @@ global so_emul
   je %3
 %endmacro
 
-%macro instruction_or_ignore 3 ; arg1 = register, arg2 = value, arg3 = label
-  compare_jump_equal %1, %2, %3
-  jmp ignore
-%endmacro
-
-%macro compare_codes 6
-%1:
-	cmp %2, %3
-	jne %4
-	add bl, %5
-	jmp %6
-%endmacro
-
 %define arg1_code r11b
 %define arg2_code r10b
 %define arg1 [rbx]
@@ -45,44 +32,32 @@ global so_emul
 section .bss
 
 state resq CORES
-registers resb 8
+registers resq CORES
 
 section .text
 
-set_argument:
-	cmp al, 3
-	jbe .arg_0_3
-	mov rbx, rsi
-	cmp al, 4
-	je .arg_4
-	cmp al, 5
-	je .arg_5
-	cmp al, 6
-	je .arg_6
-	jmp .arg_7
-
-.arg_0_3:
-	mov rbx, registers
-	add bl, al
-ret
-
-.arg_4:
-	add bl, byte X
-ret
-
-.arg_5:
-	add bl, byte Y
-ret
-
-.arg_6:
-	add bl, byte X
-	add bl, byte D
-ret
-
-.arg_7:
-	add bl, byte Y
-	add bl, byte D
-ret
+set_argument: ; w al znajduje się kod zmiennej
+	xor rbx, rbx
+	xor r8, r8
+	compare_jump_less al, 4, .arg_0_1_2_3
+	compare_jump_equal al, 4, .arg_4_6
+	compare_jump_equal al, 5, .arg_5_7
+	mov bl, D
+	compare_jump_equal al, 6, .arg_4_6
+	jmp .arg_5_7
+.arg_0_1_2_3:
+	lea rbx, [rel registers]
+	lea rbx, [rbx + rax]
+	ret
+.arg_4_6:
+	lea r8, X
+	jmp .get_data_pointer
+.arg_5_7:
+	lea r8, Y
+.get_data_pointer:
+  add bl, byte [r8]
+  lea rbx, [rsi + rbx]
+  ret
 
 set_arg1_and_imm8:
 	xor rax, rax
@@ -90,19 +65,32 @@ set_arg1_and_imm8:
 	mov al, byte ch
 	and al, 7 ; operacja % 8
 	call set_argument
-ret
+	ret
 
 set_arg1_and_arg2:
-xor rax, rax
-mov al, byte ch
-shr al, 3 ; operacja / 8
-call set_argument
-mov arg2, byte [rbx]
-xor rax, rax
-mov al, byte ch
-and al, 7 ; operacja % 8
-call set_argument
-ret
+	xor rax, rax
+	mov al, byte ch
+	shr al, 3 ; operacja / 8
+	call set_argument
+	mov arg2, byte [rbx]
+	xor rax, rax
+	mov al, byte ch
+	and al, 7 ; operacja % 8
+	call set_argument
+	ret
+
+set_arg1_and_arg2_reference:
+	xor rax, rax
+	xor rbx, rbx
+	mov al, byte ch
+	shr al, 3 ; operacja / 8
+	call set_argument
+	mov r15, rbx
+	xor rax, rax
+	mov al, byte ch
+	and al, 7 ; operacja % 8
+	call set_argument
+	ret
 
 so_emul:
 	push rbx
@@ -134,6 +122,7 @@ instruction_loop:
 	xor r9, r9
 	mov r9b, PC
 	mov cx, [rdi + 2 * r9] ; wczytujemy instrukcję z tablicy
+	xor r9, r9
 	inc byte PC
 
 	cmp cx, 0x4000
@@ -164,12 +153,14 @@ call set_arg1_and_arg2
 	compare_jump_equal byte cl, 0x5, sub_i
 	compare_jump_equal byte cl, 0x6, adc_i
 	compare_jump_equal byte cl, 0x7, sbb_i
+call set_arg1_and_arg2_reference
 	compare_jump_equal byte cl, 0x8, xchg_i
 	jmp ignore
 ignore:
 instruction_done:
 	xor rbx, rbx
-	xor arg2, arg2
+	xor r15, r15
+	xor r9, r9
 	inc r14
 	cmp r14, r13                   ;sprawdzamy, czy wykonaliśmy już steps instrukcji
 	jne instruction_loop           ; jeśli nie, to parsujemy i wykonujemy kolejną
@@ -185,56 +176,38 @@ mov_i:
 
 or_i:
 	or byte arg1, byte arg2
-	lahf
-	shr ah, 6
-	and ah, 1
-	mov Z, ah
+	call set_Z_flag
 	jmp instruction_done
 
 add_i:
 	add byte arg1, byte arg2
-  lahf
-  shr ah, 6
-  and ah, 1
-  mov Z, ah
+  call set_Z_flag
 	jmp instruction_done
 
 sub_i:
 	sub byte arg1, byte arg2
-  lahf
-  shr ah, 6
-  and ah, 1
-  mov Z, ah
+  call set_Z_flag
 	jmp instruction_done
 
 adc_i:
 	mov byte ah, byte C
 	sahf
 	adc arg1, arg2
-	lahf
-	mov cl, ah
-	shr ah, 6
-	and ah, 1
-	and cl, 1
-	mov Z, byte ah
-	mov C, byte cl
+	call set_both_flags
 	jmp instruction_done
 
 sbb_i:
 	mov ah, byte C
 	sahf
 	sbb byte arg1, byte arg2
-	lahf
-	mov cl, ah
-	shr ah, 6
-	and ah, 1
-	and cl, 1
-	mov Z, ah
-	mov C, cl
+	call set_both_flags
 	jmp instruction_done
 
 	xchg_i:
-  xchg byte arg1, byte arg2 ;todo może zmienić
+	xor r9, r9
+	mov r9b, byte [r15]
+  xchg byte [rbx], r9b
+  mov byte [r15], r9b
   jmp instruction_done
 
 movi_i:
@@ -242,73 +215,80 @@ movi_i:
 	jmp instruction_done
 
 xori_i:
-	xor arg1, imm8
-  lahf
-  shr ah, 6
-  and ah, 1
-  mov Z, ah
+	xor byte arg1, byte imm8
+  call set_Z_flag
   jmp instruction_done
 
 addi_i:
 	add byte arg1, byte imm8
   lahf
-  shr ah, 6
-  and ah, 1
-  mov Z, ah
+  call set_Z_flag
   jmp instruction_done
 
 cmpi_i:
-	cmp arg1, imm8
-	lahf
-  mov cl, ah
-  shr ah, 6
-  and ah, 1
-  and cl, 1
-  mov Z, ah
-  mov C, cl
+	cmp byte arg1, byte imm8
+	call set_both_flags
   jmp instruction_done
 
 rcr_i:
 	mov ah, byte C
 	sahf
 	rcr byte arg1, 1
-	lahf
-	and ah, 1
-	mov C, ah
+	call set_C_flag
   jmp instruction_done
 
 clc_i:
-	mov C, byte 0
+	mov byte C, byte 0
   jmp instruction_done
 
 stc_i:
-	mov C, byte 1
+	mov byte C, byte 1
 	jmp instruction_done
 
 jnc_i:
-	cmp C, byte 1
+	cmp byte C, byte 1
 	je instruction_done
 	jmp make_jump
 
 jc_i:
-	cmp C, byte 1
+	cmp byte C, byte 1
 	jne instruction_done
 	jmp make_jump
 
 jnz_i:
- 	cmp Z, byte 1
+ 	cmp byte Z, byte 1
  	je instruction_done
  	jmp make_jump
 
 jz_i:
- 	cmp Z, byte 1
+ 	cmp byte Z, byte 1
  	jne instruction_done
  	jmp make_jump
 
 jmp_i:
 make_jump:
-	add PC, imm8
+	add byte PC, byte imm8
 	jmp instruction_done
+
+set_Z_flag:
+	lahf
+	shr ah, 6
+	and ah, 1
+	mov Z, ah
+	ret
+
+set_C_flag:
+	lahf
+	and ah, 1
+	mov C, ah
+	ret
+
+set_both_flags:
+	pushf
+	call set_Z_flag
+	popf
+	call set_C_flag
+	ret
 
 brk_i:
 end:
@@ -320,4 +300,4 @@ end:
 	pop r13
 	pop r12
 	pop rbx
-ret
+	ret
